@@ -28,3 +28,4 @@ test_docs/
 # Environment
 .env
 .env.local
+python/uploads/
