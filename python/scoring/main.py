@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+from typing import Any, Dict, Iterable, List, Sequence
+
+SEVERITY_WEIGHTS = {
+    "low": 8,
+    "medium": 22,
+    "high": 40,
+}
+
+STATUS_THRESHOLDS = [
+    (80, "flagged"),
+    (45, "review"),
+    (0, "cleared"),
+]
+
+
+def score_case(flags: Sequence[Dict[str, Any]], anomaly_score: float = 0.0) -> Dict[str, Any]:
+    weighted_flags = 0.0
+    for flag in flags:
+        weighted_flags += float(flag.get("score") or SEVERITY_WEIGHTS.get(str(flag.get("severity", "low")).lower(), 8))
+
+    normalized_flag_component = min(65.0, weighted_flags)
+    normalized_anomaly_component = min(35.0, max(0.0, anomaly_score * 0.35))
+    risk_score = int(min(100.0, round(normalized_flag_component + normalized_anomaly_component)))
+
+    status = "cleared"
+    for threshold, candidate in STATUS_THRESHOLDS:
+        if risk_score >= threshold:
+            status = candidate
+            break
+
+    explanation = _build_summary(flags, anomaly_score, risk_score, status)
+    return {
+        "risk_score": risk_score,
+        "status": status,
+        "explanation": explanation,
+    }
+
+
+def _build_summary(flags: Sequence[Dict[str, Any]], anomaly_score: float, risk_score: int, status: str) -> str:
+    if not flags and anomaly_score < 10:
+        return "No material fraud indicators were detected."
+
+    top_findings = [str(flag.get("finding", "Unknown issue")) for flag in list(flags)[:3]]
+    finding_text = "; ".join(top_findings) if top_findings else "No specific flags"
+    return f"Risk score {risk_score} ({status}). Key signals: {finding_text}."
