@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credexa AI — UI Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ───────────────────────── RESET & BASE ───────────────────────── */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#EBEBEA;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  padding:24px;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ───────────────────────── WINDOW CHROME ───────────────────────── */
+.window{
+  width:100%;max-width:1280px;height:800px;
+  background:#FAFAF8;
+  border-radius:12px;
+  border:1px solid #DEDEDC;
+  overflow:hidden;
+  box-shadow:0 4px 24px rgba(0,0,0,0.06),0 1px 4px rgba(0,0,0,0.04);
+  display:flex;flex-direction:column;
+  position:relative;
+}
+
+.titlebar{
+  height:40px;background:#FFFFFF;
+  border-bottom:1px solid #EBEBEA;
+  display:flex;align-items:center;
+  padding:0 16px;
+  flex-shrink:0;
+  -webkit-app-region:drag;
+}
+
+.traffic-lights{display:flex;gap:7px;align-items:center;}
+.tl{width:12px;height:12px;border-radius:50%;transition:filter 0.15s;}
+.tl-red{background:#FF5F57;}
+.tl-yellow{background:#FEBC2E;}
+.tl-green{background:#28C840;}
+.traffic-lights:hover .tl{filter:brightness(0.92);}
+
+.tb-title{
+  flex:1;text-align:center;
+  font-size:11.5px;color:#BBBBBB;
+  font-weight:500;letter-spacing:0.03em;
+}
+
+/* ───────────────────────── APP BODY ───────────────────────── */
+.app-body{display:flex;flex:1;overflow:hidden;}
+
+/* ───────────────────────── SIDEBAR ───────────────────────── */
+.sidebar{
+  width:54px;background:#FFFFFF;
+  border-right:1px solid #EBEBEA;
+  display:flex;flex-direction:column;align-items:center;
+  padding:12px 0;flex-shrink:0;
+}
+
+.logo-mark{
+  width:30px;height:30px;
+  background:#4F46E5;
+  border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:11px;color:#fff;
+  letter-spacing:-0.5px;
+  margin-bottom:22px;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(79,70,229,0.22);
+}
+
+.nav-group{display:flex;flex-direction:column;gap:1px;width:100%;padding:0 7px;flex:1;}
+
+.nav-btn{
+  width:40px;height:40px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:#CCCCCA;
+  transition:all 0.15s ease;
+  border:1px solid transparent;
+  position:relative;
+}
+.nav-btn:hover{background:#F5F5F4;color:#888888;}
+.nav-btn.active{background:#EEF2FF;color:#4F46E5;border-color:#C7D2FE;}
+
+.nav-badge{
+  position:absolute;top:6px;right:6px;
+  width:6px;height:6px;border-radius:50%;
+  background:#DC2626;
+  border:1px solid #FFFFFF;
+}
+
+.nav-bottom{padding:0 7px 4px;}
+
+/* ───────────────────────── CONTENT ───────────────────────── */
+.content{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative;}
+
+/* ───────────────────────── VIEW SYSTEM ───────────────────────── */
+.view{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.view.active{display:flex;}
+
+/* ───────────────────────── SHARED HEADER ───────────────────────── */
+.view-hd{
+  padding:22px 26px 0;
+  display:flex;align-items:flex-start;justify-content:space-between;
+  flex-shrink:0;
+}
+.view-hd-bordered{
+  padding:22px 26px 18px;
+  border-bottom:1px solid #EBEBEA;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.vt{font-size:18px;font-weight:700;color:#0D0D0D;letter-spacing:-0.025em;}
+.vs{font-size:11px;color:#AAAAAA;margin-top:3px;letter-spacing:0.01em;}
+
+.btn-row{display:flex;gap:8px;align-items:center;}
+
+.btn{
+  height:30px;padding:0 13px;border-radius:6px;
+  font-size:11.5px;font-weight:500;cursor:pointer;
+  border:none;display:flex;align-items:center;gap:5px;
+  transition:all 0.12s;font-family:inherit;
+}
+.btn-ghost{background:transparent;color:#888888;border:1px solid #D5D5D3;}
+.btn-ghost:hover{border-color:#AAAAAA;color:#444444;}
+.btn-primary{background:#4F46E5;color:#fff;border:1px solid transparent;}
+.btn-primary:hover{background:#4338CA;}
+
+/* ───────────────────────── BADGES ───────────────────────── */
+.badge{
+  display:inline-flex;align-items:center;
+  height:19px;padding:0 7px;border-radius:4px;
+  font-size:10.5px;font-weight:600;letter-spacing:0.01em;
+}
+.b-red{background:rgba(220,38,38,0.07);color:#DC2626;}
+.b-yellow{background:rgba(217,119,6,0.08);color:#D97706;}
+.b-green{background:rgba(22,163,74,0.07);color:#16A34A;}
+.b-indigo{background:rgba(79,70,229,0.08);color:#4F46E5;}
+.b-gray{background:rgba(120,120,120,0.08);color:#888888;}
+
+/* ═══════════════════════════════════════════════════════════
+   VIEW 1: DASHBOARD
+═══════════════════════════════════════════════════════════ */
+.stats-row{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:10px;padding:18px 26px 0;flex-shrink:0;
+}
+.stat-card{
+  background:#FFFFFF;border:1px solid #EBEBEA;
+  border-radius:9px;padding:15px;
+}
+.sc-label{font-size:10px;color:#AAAAAA;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px;}
+.sc-val{font-size:26px;font-weight:700;color:#0D0D0D;letter-spacing:-0.05em;line-height:1;font-family:'JetBrains Mono',monospace;}
+.sc-sub{font-size:10.5px;margin-top:5px;}
+.sc-sub.up{color:#16A34A;}
+.sc-sub.warn{color:#D97706;}
+.sc-sub.danger{color:#DC2626;}
+.sc-sub.dim{color:#AAAAAA;}
+
+.main-row{flex:1;overflow:hidden;display:flex;gap:12px;padding:16px 26px 22px;}
+
+/* Cases table */
+.cases-wrap{
+  flex:1;background:#FFFFFF;
+  border:1px solid #EBEBEA;border-radius:9px;
+  overflow:hidden;display:flex;flex-direction:column;
+}
+.tw-hd{
+  padding:12px 14px;border-bottom:1px solid #EBEBEA;
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.tw-title{font-size:12px;font-weight:600;color:#0D0D0D;}
+.search-inp{
+  height:26px;padding:0 10px;
+  background:#F5F5F4;border:1px solid #D5D5D3;
+  border-radius:5px;font-size:11px;color:#888888;
+  width:168px;outline:none;font-family:inherit;
+}
+.search-inp:focus{border-color:#AAAAAA;color:#444444;}
+
+.tbl-head{
+  display:grid;
+  grid-template-columns:95px 1fr 78px 160px 80px 76px;
+  padding:7px 14px;border-bottom:1px solid #F2F2F0;flex-shrink:0;
+}
+.th{font-size:10px;color:#AAAAAA;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;}
+
+.tbl-body{flex:1;overflow-y:auto;}
+.tr{
+  display:grid;
+  grid-template-columns:95px 1fr 78px 160px 80px 76px;
+  padding:9px 14px;border-bottom:1px solid #F5F5F4;
+  align-items:center;cursor:pointer;
+  transition:background 0.1s;
+}
+.tr:hover{background:#FAFAF8;}
+.tr:last-child{border-bottom:none;}
+
+.td{font-size:11.5px;color:#888888;}
+.td.mono{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#666666;font-weight:500;}
+.td.name{color:#111111;font-weight:500;font-size:11.5px;}
+
+.riskbar-wrap{display:flex;align-items:center;gap:7px;}
+.riskbar{height:3px;border-radius:2px;background:#EEEEEC;flex:1;overflow:hidden;}
+.riskbar-fill{height:100%;border-radius:2px;}
+.risk-num{font-size:10.5px;font-family:'JetBrains Mono',monospace;min-width:22px;text-align:right;}
+
+/* Right panel */
+.side-panel{width:210px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+
+.panel-card{
+  background:#FFFFFF;border:1px solid #EBEBEA;
+  border-radius:9px;padding:13px;
+}
+.pc-label{font-size:10px;color:#AAAAAA;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:11px;}
+
+.dist-item{margin-bottom:9px;}
+.dist-item:last-child{margin-bottom:0;}
+.dist-top{display:flex;justify-content:space-between;margin-bottom:4px;}
+.dist-top span{font-size:10.5px;color:#888888;}
+.dist-top .dist-count{color:#555555;}
+.dist-track{height:3px;background:#EEEEEC;border-radius:2px;overflow:hidden;}
+.dist-fill{height:100%;border-radius:2px;}
+
+.act-list{display:flex;flex-direction:column;gap:9px;}
+.act-item{display:flex;gap:8px;align-items:flex-start;}
+.act-dot{width:5px;height:5px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+.act-body{flex:1;}
+.act-text{font-size:10.5px;color:#888888;line-height:1.45;}
+.act-text strong{color:#555555;font-weight:500;}
+.act-time{font-size:9.5px;color:#CCCCCA;margin-top:1px;}
+
+/* ═══════════════════════════════════════════════════════════
+   VIEW 2: CASE DETAIL
+═══════════════════════════════════════════════════════════ */
+.case-body{display:flex;flex:1;overflow:hidden;}
+
+/* Left doc list */
+.doc-panel{
+  width:260px;background:#FAFAF8;
+  border-right:1px solid #EBEBEA;
+  display:flex;flex-direction:column;flex-shrink:0;
+}
+.dp-hd{
+  padding:13px 14px;border-bottom:1px solid #EBEBEA;
+  font-size:10px;color:#AAAAAA;font-weight:600;
+  text-transform:uppercase;letter-spacing:0.08em;flex-shrink:0;
+}
+.doc-list{flex:1;overflow-y:auto;padding:6px;}
+
+.doc-item{
+  padding:9px;border-radius:7px;cursor:pointer;
+  display:flex;align-items:center;gap:9px;
+  margin-bottom:1px;border:1px solid transparent;
+  transition:all 0.12s;
+}
+.doc-item:hover{background:#F5F5F4;}
+.doc-item.active{background:#EEF2FF;border-color:#C7D2FE;}
+
+.doc-icon{
+  width:29px;height:36px;
+  background:#F5F5F4;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:8.5px;color:#AAAAAA;font-weight:700;
+  border:1px solid #D5D5D3;flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;
+}
+.doc-item.active .doc-icon{border-color:#A5B4FC;color:#4F46E5;}
+
+.doc-info{flex:1;min-width:0;}
+.doc-name{font-size:11px;color:#111111;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.doc-meta{font-size:10px;color:#AAAAAA;margin-top:2px;}
+
+.doc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* Right analysis area */
+.analysis-area{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;}
+
+/* Risk card */
+.risk-card{
+  background:#FFFFFF;border:1px solid #EBEBEA;
+  border-radius:9px;padding:18px;
+  display:flex;align-items:center;gap:20px;
+}
+
+.gauge-svg{flex-shrink:0;}
+
+.risk-info{flex:1;}
+.risk-verdict{font-size:16px;font-weight:700;color:#0D0D0D;letter-spacing:-0.02em;margin-bottom:5px;}
+.risk-summary{font-size:11.5px;color:#888888;line-height:1.6;max-width:360px;}
+
+.risk-btns{display:flex;flex-direction:column;gap:7px;flex-shrink:0;}
+.btn-danger{
+  height:29px;padding:0 14px;border-radius:6px;
+  background:rgba(220,38,38,0.06);color:#DC2626;
+  border:1px solid rgba(220,38,38,0.18);
+  font-size:11.5px;font-weight:500;cursor:pointer;font-family:inherit;
+}
+.btn-danger:hover{background:rgba(220,38,38,0.10);}
+.btn-approve{
+  height:29px;padding:0 14px;border-radius:6px;
+  background:rgba(22,163,74,0.06);color:#16A34A;
+  border:1px solid rgba(22,163,74,0.18);
+  font-size:11.5px;font-weight:500;cursor:pointer;font-family:inherit;
+}
+.btn-approve:hover{background:rgba(22,163,74,0.10);}
+
+/* Layer breakdown */
+.layers-card{
+  background:#FFFFFF;border:1px solid #EBEBEA;
+  border-radius:9px;overflow:hidden;
+}
+.lc-hd{
+  padding:12px 15px;border-bottom:1px solid #EBEBEA;
+  font-size:12px;font-weight:600;color:#111111;
+}
+.layer-row{
+  padding:11px 15px;border-bottom:1px solid #F5F5F4;
+  display:flex;align-items:center;gap:10px;
+}
+.layer-row:last-child{border-bottom:none;}
+.lr-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0;}
+.lr-name{font-size:11.5px;color:#555555;font-weight:500;width:120px;flex-shrink:0;}
+.lr-finding{font-size:10.5px;color:#AAAAAA;flex:1;line-height:1.4;}
+.lr-bar-wrap{flex-shrink:0;display:flex;align-items:center;gap:7px;}
+.lr-bar{width:72px;height:3px;background:#EEEEEC;border-radius:2px;overflow:hidden;}
+.lr-bar-fill{height:100%;border-radius:2px;}
+.lr-score{font-size:10.5px;font-family:'JetBrains Mono',monospace;min-width:46px;text-align:right;}
+
+/* Explanation card */
+.explain-card{
+  background:#FFFFFF;border:1px solid #EBEBEA;
+  border-radius:9px;padding:15px;
+}
+.ex-hd{display:flex;align-items:center;gap:8px;margin-bottom:11px;}
+.ex-chip{
+  background:rgba(79,70,229,0.07);color:#4F46E5;
+  font-size:9px;font-weight:700;padding:2px 7px;
+  border-radius:3px;letter-spacing:0.08em;
+}
+.ex-title{font-size:12px;font-weight:600;color:#111111;}
+.ex-body{font-size:11.5px;color:#888888;line-height:1.65;}
+.ex-hl{color:#2A2A2A;font-weight:500;}
+
+.ex-findings{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.ex-row{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:#AAAAAA;line-height:1.5;}
+.ex-bul{flex-shrink:0;margin-top:2px;font-size:8px;}
+.ex-bul.red{color:#DC2626;}
+.ex-bul.yellow{color:#D97706;}
+.ex-bul.indigo{color:#4F46E5;}
+
+/* ═══════════════════════════════════════════════════════════
+   VIEW 3: UPLOAD
+═══════════════════════════════════════════════════════════ */
+.upload-body{flex:1;overflow-y:auto;padding:22px 26px;}
+
+.drop-zone{
+  border:1.5px dashed #D5D5D3;border-radius:10px;
+  padding:40px 28px;text-align:center;cursor:pointer;
+  transition:all 0.2s;background:rgba(79,70,229,0.01);
+}
+.drop-zone:hover{border-color:#4F46E5;background:rgba(79,70,229,0.025);}
+.dz-icon{font-size:28px;margin-bottom:10px;opacity:0.3;}
+.dz-title{font-size:14px;font-weight:600;color:#111111;margin-bottom:5px;}
+.dz-sub{font-size:11.5px;color:#AAAAAA;}
+.dz-pills{display:flex;gap:5px;justify-content:center;margin-top:12px;}
+.dz-pill{
+  height:20px;padding:0 8px;background:#F5F5F4;
+  border:1px solid #D5D5D3;border-radius:4px;
+  font-size:9.5px;color:#888888;display:flex;align-items:center;
+  font-family:'JetBrains Mono',monospace;
+}
+
+.queue-section{margin-top:20px;}
+.qs-label{font-size:10px;color:#AAAAAA;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;}
+
+.queue-item{
+  background:#FFFFFF;border:1px solid #EBEBEA;
+  border-radius:8px;padding:11px 13px;
+  display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;
+}
+.qi-icon{
+  width:26px;height:32px;background:#F5F5F4;
+  border:1px solid #D5D5D3;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:8px;color:#888888;font-weight:700;
+  flex-shrink:0;font-family:'JetBrains Mono',monospace;
+}
+.qi-info{flex:1;min-width:0;}
+.qi-name{font-size:11.5px;color:#111111;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qi-size{font-size:10px;color:#AAAAAA;margin-top:2px;}
+.prog-track{height:2px;background:#EEEEEC;border-radius:1px;overflow:hidden;margin-top:7px;}
+.prog-fill{height:100%;border-radius:1px;}
+.stage-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
+.s-chip{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:500;}
+.s-done{background:rgba(22,163,74,0.07);color:#16A34A;}
+.s-active{background:rgba(79,70,229,0.08);color:#4F46E5;}
+.s-pending{background:rgba(160,160,160,0.12);color:#AAAAAA;}
+.qi-status{flex-shrink:0;padding-top:1px;}
+
+/* ───────────────────────── SCROLLBARS ───────────────────────── */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#D5D5D3;border-radius:4px;}
+::-webkit-scrollbar-thumb:hover{background:#AAAAAA;}
+
+.gauge-num{font-family:'JetBrains Mono',monospace !important;}
+
+/* ───────────────────────── NAV TOOLTIP ───────────────────────── */
+.nav-btn{position:relative;}
+.nav-tooltip{
+  position:absolute;left:calc(100% + 10px);top:50%;
+  transform:translateY(-50%);
+  background:#FFFFFF;border:1px solid #D5D5D3;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);
+  color:#444444;font-size:10.5px;font-weight:500;
+  padding:4px 9px;border-radius:5px;
+  white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity 0.15s;
+  z-index:50;
+}
+.nav-btn:hover .nav-tooltip{opacity:1;}
+
+/* ───────────────────────── BACK ROW ───────────────────────── */
+.back-row{display:flex;align-items:center;gap:10px;}
+
+</style>
+</head>
+<body>
+
+<div class="window">
+
+  <!-- ── Title Bar ── -->
+  <div class="titlebar">
+    <div class="traffic-lights">
+      <div class="tl tl-red"></div>
+      <div class="tl tl-yellow"></div>
+      <div class="tl tl-green"></div>
+    </div>
+    <div class="tb-title">Credexa AI &nbsp;·&nbsp; Fraud Intelligence</div>
+    <div style="width:52px"></div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- ── Sidebar ── -->
+    <nav class="sidebar">
+      <div class="logo-mark">Cx</div>
+
+      <div class="nav-group">
+        <div class="nav-btn active" id="nb-dash" onclick="switchView('dash')" title="">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+          <span class="nav-tooltip">Dashboard</span>
+        </div>
+
+        <div class="nav-btn" id="nb-cases" onclick="switchView('cases')" title="">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <line x1="10" y1="9" x2="8" y2="9"/>
+          </svg>
+          <div class="nav-badge"></div>
+          <span class="nav-tooltip">Case Detail</span>
+        </div>
+
+        <div class="nav-btn" id="nb-upload" onclick="switchView('upload')" title="">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span class="nav-tooltip">New Case</span>
+        </div>
+
+        <div class="nav-btn" title="">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          <span class="nav-tooltip">Reports</span>
+        </div>
+      </div>
+
+      <div class="nav-bottom">
+        <div class="nav-btn" title="">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span class="nav-tooltip">Settings</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="content">
+
+      <!-- ══════════════════════════════════════
+           VIEW: DASHBOARD
+      ══════════════════════════════════════ -->
+      <div class="view active" id="view-dash">
+        <div class="view-hd">
+          <div>
+            <div class="vt">Overview</div>
+            <div class="vs">June 16, 2026 &nbsp;·&nbsp; 47 cases pending review</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost">Export CSV</button>
+            <button class="btn btn-primary" onclick="switchView('upload')">+ New Case</button>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="sc-label">Total Cases</div>
+            <div class="sc-val">2,847</div>
+            <div class="sc-sub dim">↑ 12% this month</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">High Risk Flagged</div>
+            <div class="sc-val" style="color:#DC2626">341</div>
+            <div class="sc-sub danger">↑ 8 since yesterday</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">Under Review</div>
+            <div class="sc-val" style="color:#D97706">89</div>
+            <div class="sc-sub warn">47 pending action</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">Auto-Cleared</div>
+            <div class="sc-val" style="color:#16A34A">2,417</div>
+            <div class="sc-sub up">84.9% approval rate</div>
+          </div>
+        </div>
+
+        <div class="main-row">
+          <div class="cases-wrap">
+            <div class="tw-hd">
+              <div class="tw-title">Recent Cases</div>
+              <input class="search-inp" placeholder="Search applicant, case ID…" readonly>
+            </div>
+            <div class="tbl-head">
+              <div class="th">Case ID</div>
+              <div class="th">Applicant</div>
+              <div class="th">Type</div>
+              <div class="th">Risk Score</div>
+              <div class="th">Status</div>
+              <div class="th">Submitted</div>
+            </div>
+            <div class="tbl-body">
+
+              <div class="tr" onclick="switchView('cases')">
+                <div class="td mono">CX-2847</div>
+                <div class="td name">Rajesh Kumar M.</div>
+                <div class="td"><span class="badge b-indigo">Home Loan</span></div>
+                <div class="td"><div class="riskbar-wrap"><div class="riskbar"><div class="riskbar-fill" style="width:82%;background:#DC2626"></div></div><span class="risk-num" style="color:#DC2626">82</span></div></div>
+                <div class="td"><span class="badge b-red">Flagged</span></div>
+                <div class="td" style="font-size:10.5px;color:#AAAAAA">09:14 AM</div>
+              </div>
+
+              <div class="tr">
+                <div class="td mono">CX-2846</div>
+                <div class="td name">Priya Nair S.</div>
+                <div class="td"><span class="badge b-gray">Business</span></div>
+                <div class="td"><div class="riskbar-wrap"><div class="riskbar"><div class="riskbar-fill" style="width:54%;background:#D97706"></div></div><span class="risk-num" style="color:#D97706">54</span></div></div>
+                <div class="td"><span class="badge b-yellow">Review</span></div>
+                <div class="td" style="font-size:10.5px;color:#AAAAAA">08:51 AM</div>
+              </div>
+
+              <div class="tr">
+                <div class="td mono">CX-2845</div>
+                <div class="td name">Aakash Verma</div>
+                <div class="td"><span class="badge b-indigo">Personal</span></div>
+                <div class="td"><div class="riskbar-wrap"><div class="riskbar"><div class="riskbar-fill" style="width:18%;background:#16A34A"></div></div><span class="risk-num" style="color:#16A34A">18</span></div></div>
+                <div class="td"><span class="badge b-green">Cleared</span></div>
+                <div class="td" style="font-size:10.5px;color:#AAAAAA">08:32 AM</div>
+              </div>
+
+              <div class="tr">
+                <div class="td mono">CX-2844</div>
+                <div class="td name">Meena Iyer</div>
+                <div class="td"><span class="badge b-indigo">Home Loan</span></div>
+                <div class="td"><div class="riskbar-wrap"><div class="riskbar"><div class="riskbar-fill" style="width:22%;background:#16A34A"></div></div><span class="risk-num" style="color:#16A34A">22</span></div></div>
+                <div class="td"><span class="badge b-green">Cleared</span></div>
+                <div class="td" style="font-size:10.5px;color:#AAAAAA">07:58 AM</div>
+              </div>
+
+              <div class="tr">
+                <div class="td mono">CX-2843</div>
+                <div class="td name">Sanjay Patil R.</div>
+                <div class="td"><span class="badge b-gray">Business</span></div>
+                <div class="td"><div class="riskbar-wrap"><div class="riskbar"><div class="riskbar-fill" style="width:91%;background:#DC2626"></div></div><span class="risk-num" style="color:#DC2626">91</span></div></div>
+                <div class="td"><span class="badge b-red">Flagged</span></div>
+                <div class="td" style="font-size:10.5px;color:#AAAAAA">Yesterday</div>
+              </div>
+
+              <div class="tr">
+                <div class="td mono">CX-2842</div>
+                <div class="td name">Deepa Sharma</div>
+                <div class="td"><span class="badge b-indigo">Personal</span></div>
+                <div class="td"><div class="riskbar-wrap"><div class="riskbar"><div class="riskbar-fill" style="width:41%;background:#D97706"></div></div><span class="risk-num" style="color:#D97706">41</span></div></div>
+                <div class="td"><span class="badge b-yellow">Review</span></div>
+                <div class="td" style="font-size:10.5px;color:#AAAAAA">Yesterday</div>
+              </div>
+
+              <div class="tr">
+                <div class="td mono">CX-2841</div>
+                <div class="td name">Vikram Singh</div>
+                <div class="td"><span class="badge b-indigo">Home Loan</span></div>
+                <div class="td"><div class="riskbar-wrap"><div class="riskbar"><div class="riskbar-fill" style="width:11%;background:#16A34A"></div></div><span class="risk-num" style="color:#16A34A">11</span></div></div>
+                <div class="td"><span class="badge b-green">Cleared</span></div>
+                <div class="td" style="font-size:10.5px;color:#AAAAAA">Yesterday</div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="side-panel">
+            <div class="panel-card">
+              <div class="pc-label">Risk Distribution</div>
+              <div class="dist-item">
+                <div class="dist-top"><span>High Risk (&gt;60)</span><span class="dist-count">341</span></div>
+                <div class="dist-track"><div class="dist-fill" style="width:12%;background:#DC2626"></div></div>
+              </div>
+              <div class="dist-item">
+                <div class="dist-top"><span>Medium (20–60)</span><span class="dist-count">89</span></div>
+                <div class="dist-track"><div class="dist-fill" style="width:3%;background:#D97706"></div></div>
+              </div>
+              <div class="dist-item">
+                <div class="dist-top"><span>Low (&lt;20)</span><span class="dist-count">2,417</span></div>
+                <div class="dist-track"><div class="dist-fill" style="width:85%;background:#16A34A"></div></div>
+              </div>
+            </div>
+
+            <div class="panel-card" style="flex:1">
+              <div class="pc-label">Activity</div>
+              <div class="act-list">
+                <div class="act-item">
+                  <div class="act-dot" style="background:#DC2626"></div>
+                  <div class="act-body">
+                    <div class="act-text"><strong>CX-2847</strong> flagged — font mismatch on pg 3, balance off ₹14.2K</div>
+                    <div class="act-time">2 min ago</div>
+                  </div>
+                </div>
+                <div class="act-item">
+                  <div class="act-dot" style="background:#16A34A"></div>
+                  <div class="act-body">
+                    <div class="act-text"><strong>CX-2845</strong> auto-approved, all layers clear</div>
+                    <div class="act-time">14 min ago</div>
+                  </div>
+                </div>
+                <div class="act-item">
+                  <div class="act-dot" style="background:#4F46E5"></div>
+                  <div class="act-body">
+                    <div class="act-text">Anomaly model retrained on <strong>12 new decisions</strong></div>
+                    <div class="act-time">1 hr ago</div>
+                  </div>
+                </div>
+                <div class="act-item">
+                  <div class="act-dot" style="background:#D97706"></div>
+                  <div class="act-body">
+                    <div class="act-text"><strong>CX-2842</strong> escalated to senior underwriter</div>
+                    <div class="act-time">2 hr ago</div>
+                  </div>
+                </div>
+                <div class="act-item">
+                  <div class="act-dot" style="background:#DC2626"></div>
+                  <div class="act-body">
+                    <div class="act-text"><strong>CX-2843</strong> rejected — closing balance inconsistency</div>
+                    <div class="act-time">3 hr ago</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           VIEW: CASE DETAIL
+      ══════════════════════════════════════ -->
+      <div class="view" id="view-cases">
+        <div class="view-hd-bordered">
+          <div class="back-row">
+            <button class="btn btn-ghost" style="padding:0 9px;gap:4px" onclick="switchView('dash')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Back
+            </button>
+            <div>
+              <div class="vt">Case CX-2847</div>
+              <div class="vs">Rajesh Kumar M. &nbsp;·&nbsp; Home Loan &nbsp;·&nbsp; 5 documents &nbsp;·&nbsp; Submitted 09:12 AM</div>
+            </div>
+          </div>
+          <span class="badge b-red" style="height:24px;font-size:11px;padding:0 11px">HIGH RISK &nbsp;·&nbsp; Score 82</span>
+        </div>
+
+        <div class="case-body">
+
+          <!-- Doc list -->
+          <div class="doc-panel">
+            <div class="dp-hd">Documents (5)</div>
+            <div class="doc-list">
+
+              <div class="doc-item active">
+                <div class="doc-icon">PDF</div>
+                <div class="doc-info">
+                  <div class="doc-name">Bank Statement Q1.pdf</div>
+                  <div class="doc-meta">HDFC · 3 months · 2.1 MB</div>
+                </div>
+                <div class="doc-dot" style="background:#DC2626"></div>
+              </div>
+
+              <div class="doc-item">
+                <div class="doc-icon">PDF</div>
+                <div class="doc-info">
+                  <div class="doc-name">ITR AY2024-25.pdf</div>
+                  <div class="doc-meta">Income Tax · 890 KB</div>
+                </div>
+                <div class="doc-dot" style="background:#D97706"></div>
+              </div>
+
+              <div class="doc-item">
+                <div class="doc-icon">PDF</div>
+                <div class="doc-info">
+                  <div class="doc-name">7-12 Extract.pdf</div>
+                  <div class="doc-meta">Maharashtra Land · 1.4 MB</div>
+                </div>
+                <div class="doc-dot" style="background:#16A34A"></div>
+              </div>
+
+              <div class="doc-item">
+                <div class="doc-icon">IMG</div>
+                <div class="doc-info">
+                  <div class="doc-name">Aadhaar Front.jpg</div>
+                  <div class="doc-meta">Identity · 480 KB</div>
+                </div>
+                <div class="doc-dot" style="background:#16A34A"></div>
+              </div>
+
+              <div class="doc-item">
+                <div class="doc-icon">PDF</div>
+                <div class="doc-info">
+                  <div class="doc-name">Sale Deed 2023.pdf</div>
+                  <div class="doc-meta">Legal · 3.8 MB</div>
+                </div>
+                <div class="doc-dot" style="background:#16A34A"></div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Analysis -->
+          <div class="analysis-area">
+
+            <!-- Risk gauge card -->
+            <div class="risk-card">
+              <svg class="gauge-svg" width="96" height="96" viewBox="0 0 96 96">
+                <circle cx="48" cy="48" r="36" fill="none" stroke="#EBEBEA" stroke-width="7"/>
+                <circle cx="48" cy="48" r="36" fill="none" stroke="#DC2626" stroke-width="7"
+                  stroke-dasharray="226" stroke-dashoffset="41"
+                  stroke-linecap="round" transform="rotate(-90 48 48)" opacity="0.9"/>
+                <text x="48" y="44" text-anchor="middle" fill="#DC2626" font-size="22" font-weight="700" font-family="JetBrains Mono,monospace">82</text>
+                <text x="48" y="57" text-anchor="middle" fill="#BBBBBB" font-size="8.5" font-family="Inter,sans-serif" letter-spacing="0.08em">RISK</text>
+              </svg>
+
+              <div class="risk-info">
+                <div class="risk-verdict">High Fraud Risk Detected</div>
+                <div class="risk-summary">Multiple forensic signals converge on the Q1 bank statement — metadata anomaly, ELA pixel disturbance, and a ₹14.2K balance reconciliation failure. Cross-document income gap of ₹2.6L flagged.</div>
+              </div>
+
+              <div class="risk-btns">
+                <button class="btn-danger">Reject Case</button>
+                <button class="btn btn-ghost" style="height:29px;justify-content:center">Escalate →</button>
+                <button class="btn-approve">Approve</button>
+              </div>
+            </div>
+
+            <!-- Detection layers -->
+            <div class="layers-card">
+              <div class="lc-hd">Detection Layer Breakdown · Bank Statement Q1.pdf</div>
+
+              <div class="layer-row">
+                <div class="lr-dot" style="background:#DC2626"></div>
+                <div class="lr-name">File Forensics</div>
+                <div class="lr-finding">Producer mismatch · Edit 3:14 AM · 2 overlapping XObject streams on pg 3</div>
+                <div class="lr-bar-wrap">
+                  <div class="lr-bar"><div class="lr-bar-fill" style="width:88%;background:#DC2626"></div></div>
+                  <span class="lr-score" style="color:#DC2626">88 / 100</span>
+                </div>
+              </div>
+
+              <div class="layer-row">
+                <div class="lr-dot" style="background:#DC2626"></div>
+                <div class="lr-name">Visual Forensics</div>
+                <div class="lr-finding">ELA anomaly pg 3 rows 12–16 · Font weight shift in salary column</div>
+                <div class="lr-bar-wrap">
+                  <div class="lr-bar"><div class="lr-bar-fill" style="width:74%;background:#DC2626"></div></div>
+                  <span class="lr-score" style="color:#DC2626">74 / 100</span>
+                </div>
+              </div>
+
+              <div class="layer-row">
+                <div class="lr-dot" style="background:#DC2626"></div>
+                <div class="lr-name">Logic / Math</div>
+                <div class="lr-finding">Closing balance off by ₹14,200 · 3 debit lines fail reconciliation</div>
+                <div class="lr-bar-wrap">
+                  <div class="lr-bar"><div class="lr-bar-fill" style="width:95%;background:#DC2626"></div></div>
+                  <span class="lr-score" style="color:#DC2626">95 / 100</span>
+                </div>
+              </div>
+
+              <div class="layer-row">
+                <div class="lr-dot" style="background:#D97706"></div>
+                <div class="lr-name">Cross-Document</div>
+                <div class="lr-finding">ITR income ₹7.2L vs bank credits ₹9.8L — 36% gap exceeds 15% threshold</div>
+                <div class="lr-bar-wrap">
+                  <div class="lr-bar"><div class="lr-bar-fill" style="width:61%;background:#D97706"></div></div>
+                  <span class="lr-score" style="color:#D97706">61 / 100</span>
+                </div>
+              </div>
+
+              <div class="layer-row">
+                <div class="lr-dot" style="background:#16A34A"></div>
+                <div class="lr-name">External Verify</div>
+                <div class="lr-finding">TRACES 26AS matches TDS · Aadhaar name consistent across docs</div>
+                <div class="lr-bar-wrap">
+                  <div class="lr-bar"><div class="lr-bar-fill" style="width:12%;background:#16A34A"></div></div>
+                  <span class="lr-score" style="color:#16A34A">12 / 100</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- AI Explanation -->
+            <div class="explain-card">
+              <div class="ex-hd">
+                <div class="ex-chip">AI ANALYSIS</div>
+                <div class="ex-title">Explainability Report — Qwen2.5 · Local</div>
+              </div>
+              <div class="ex-body">
+                This bundle shows <span class="ex-hl">three independent forensic signals</span> converging on page 3 of the bank statement (Q1, HDFC). Each signal is independently suspicious — together they constitute strong evidence of digital tampering:
+              </div>
+              <div class="ex-findings">
+                <div class="ex-row">
+                  <span class="ex-bul red">●</span>
+                  <span>File was last modified at <span class="ex-hl">3:14 AM via Adobe Acrobat Pro</span>, inconsistent with a system-generated bank PDF. The CreateDate and ModifyDate differ by 11 hours, and a second content stream was inserted over the original on page 3.</span>
+                </div>
+                <div class="ex-row">
+                  <span class="ex-bul red">●</span>
+                  <span>Error Level Analysis shows <span class="ex-hl">elevated pixel noise at rows 12–16 of page 3</span> — the salary credit section — indicating those bytes were rewritten after the final JPEG compression pass.</span>
+                </div>
+                <div class="ex-row">
+                  <span class="ex-bul red">●</span>
+                  <span>Mathematical reconciliation fails: <span class="ex-hl">closing balance is ₹14,200 higher</span> than the running sum of opening balance + credits − debits, suggesting a deleted or altered debit line.</span>
+                </div>
+                <div class="ex-row">
+                  <span class="ex-bul yellow">●</span>
+                  <span>Cross-document check: declared income in ITR (₹7.2L) versus total bank credits (₹9.8L) shows a <span class="ex-hl">₹2.6L discrepancy (36%)</span>, well outside the acceptable 15% tolerance band.</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           VIEW: UPLOAD
+      ══════════════════════════════════════ -->
+      <div class="view" id="view-upload">
+        <div class="view-hd">
+          <div>
+            <div class="vt">New Case</div>
+            <div class="vs">Upload documents for a new loan application bundle</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="switchView('dash')">Cancel</button>
+            <button class="btn btn-primary">Run Analysis →</button>
+          </div>
+        </div>
+
+        <div class="upload-body">
+          <div class="drop-zone">
+            <div class="dz-icon">⬆</div>
+            <div class="dz-title">Drop documents here or click to browse</div>
+            <div class="dz-sub">All processing happens locally — no data leaves your machine</div>
+            <div class="dz-pills">
+              <div class="dz-pill">.pdf</div>
+              <div class="dz-pill">.jpg</div>
+              <div class="dz-pill">.png</div>
+              <div class="dz-pill">.tiff</div>
+            </div>
+          </div>
+
+          <div class="queue-section">
+            <div class="qs-label">Processing Queue — Case CX-2847</div>
+
+            <div class="queue-item">
+              <div class="qi-icon">PDF</div>
+              <div class="qi-info">
+                <div class="qi-name">Bank_Statement_HDFC_Q1_2025.pdf</div>
+                <div class="qi-size">2.1 MB · Financial · HDFC Bank</div>
+                <div class="prog-track"><div class="prog-fill" style="width:100%;background:#16A34A"></div></div>
+                <div class="stage-row">
+                  <span class="s-chip s-done">OCR ✓</span>
+                  <span class="s-chip s-done">Metadata ✓</span>
+                  <span class="s-chip s-done">ELA ✓</span>
+                  <span class="s-chip s-done">Math ✓</span>
+                  <span class="s-chip s-done">Complete</span>
+                </div>
+              </div>
+              <div class="qi-status"><span class="badge b-red">Score 82</span></div>
+            </div>
+
+            <div class="queue-item">
+              <div class="qi-icon">PDF</div>
+              <div class="qi-info">
+                <div class="qi-name">ITR_AY2024_25_Rajesh_Kumar.pdf</div>
+                <div class="qi-size">890 KB · Tax Document · AY 2024–25</div>
+                <div class="prog-track"><div class="prog-fill" style="width:100%;background:#16A34A"></div></div>
+                <div class="stage-row">
+                  <span class="s-chip s-done">OCR ✓</span>
+                  <span class="s-chip s-done">Metadata ✓</span>
+                  <span class="s-chip s-done">Math ✓</span>
+                  <span class="s-chip s-done">TRACES API ✓</span>
+                  <span class="s-chip s-done">Complete</span>
+                </div>
+              </div>
+              <div class="qi-status"><span class="badge b-yellow">Score 54</span></div>
+            </div>
+
+            <div class="queue-item">
+              <div class="qi-icon">IMG</div>
+              <div class="qi-info">
+                <div class="qi-name">Aadhaar_Front_Rajesh.jpg</div>
+                <div class="qi-size">480 KB · Identity Document</div>
+                <div class="prog-track"><div class="prog-fill" style="width:62%;background:#4F46E5"></div></div>
+                <div class="stage-row">
+                  <span class="s-chip s-done">OCR ✓</span>
+                  <span class="s-chip s-done">Metadata ✓</span>
+                  <span class="s-chip s-active">PRNU Analysis…</span>
+                  <span class="s-chip s-pending">DCT Check</span>
+                  <span class="s-chip s-pending">Gov Source API</span>
+                </div>
+              </div>
+              <div class="qi-status" style="font-size:10px;color:#AAAAAA;padding-top:2px">Processing…</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /app-body -->
+</div><!-- /window -->
+
+<script>
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  const map = { dash: 'nb-dash', cases: 'nb-cases', upload: 'nb-upload' };
+  if (map[name]) document.getElementById(map[name]).classList.add('active');
+}
+</script>
+
+</body>
+</html>
