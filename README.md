@@ -55,6 +55,25 @@ Credexa is built to handle the complexities of regional and standard documents:
 
 ---
 
+## 🧠 Model Optimization (LayoutLMv3)
+
+Credexa uses LayoutLMv3 for document parsing and routing. By default, the raw PyTorch model from HuggingFace is extremely large (~478MB). Running this raw model inside parallel Celery workers creates a massive memory bottleneck, especially during local development or on CPU-only infrastructure.
+
+To solve this, we use **PyTorch QNNPACK INT8 Dynamic Quantization**. This process compresses the model weights, slashing the memory footprint by **~51% (down to 235MB)** and dramatically speeding up CPU inference without losing extraction accuracy.
+
+### Generating the Optimized Model
+If you are running Credexa locally, you should generate the optimized `.pt` model before starting the backend.
+
+1. Activate your virtual environment.
+2. Run the optimization script:
+```bash
+python export_pytorch_quantized.py
+```
+3. The script will download the raw FUNSD model, apply INT8 quantization, and save `layoutlmv3_quantized.pt` to the root directory.
+4. The OCR ingestion engine (`backend/ingestion/ocr.py`) will automatically detect and load this smaller, faster model.
+
+---
+
 ## 🛠 Setup & Installation
 
 ### Option A: Using Docker Compose (Recommended)
