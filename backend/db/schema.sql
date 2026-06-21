@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS cases (
     application_subtype TEXT,    -- Home Loan, Business Loan, etc. (depends on application_type)
     status TEXT, -- pending, review, flagged, cleared
     risk_score INTEGER,
-    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS documents (
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
     case_id TEXT,
     action TEXT,
     details TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(case_id) REFERENCES cases(id)
 );
 
@@ -51,6 +51,6 @@ CREATE TABLE IF NOT EXISTS feedback (
     reviewer_id TEXT,
     decision TEXT,
     notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(case_id) REFERENCES cases(id)
 );

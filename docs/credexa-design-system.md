@@ -437,7 +437,7 @@ let pythonProcess;
 app.whenReady().then(() => {
   // Spawn Python backend
   pythonProcess = spawn('python3', [
-    path.join(__dirname, '../python/api/main.py')
+    path.join(__dirname, '../backend/api/main.py')
   ]);
 
   const win = new BrowserWindow({

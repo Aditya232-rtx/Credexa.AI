@@ -92,7 +92,7 @@ credexa-desktop/
 │   ├── tailwind.config.js
 │   └── vite.config.js
 │
-├── python/                      # Python backend (all pipeline modules)
+├── backend/                      # Python backend (all pipeline modules)
 │   ├── api/
 │   │   └── main.py              # FastAPI orchestration (unchanged)
 │   ├── ingestion/

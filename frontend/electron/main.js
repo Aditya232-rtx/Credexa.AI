@@ -10,7 +10,7 @@ let backendProcess = null
 let mainWindow = null
 
 function startBackend() {
-  const backendDir = path.resolve(__dirname, '..', '..', 'python')
+  const backendDir = path.resolve(__dirname, '..', '..', 'backend')
   const venvDir = path.resolve(__dirname, '..', '..', '.venv')
   
   let backendCommand = process.platform === 'win32' ? 'python' : 'python3.11'

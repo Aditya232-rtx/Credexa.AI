@@ -80,7 +80,7 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 
 # 3. Install Python dependencies
-pip install -r python/requirements.txt
+pip install -r backend/requirements.txt
 
 # 4. Install frontend dependencies
 cd frontend
@@ -180,7 +180,7 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 
 # 3. Install dependencies
-pip install -r python/requirements.txt
+pip install -r backend/requirements.txt
 cd frontend && npm install
 
 # 4. Run
@@ -201,7 +201,7 @@ Credexa/
 │   │   ├── api.js          # Backend API client
 │   │   └── App.jsx         # Main app shell
 │   └── package.json
-├── python/                 # FastAPI backend + ML pipeline
+├── backend/                 # FastAPI backend + ML pipeline
 │   ├── api/                # REST API endpoints
 │   ├── db/                 # SQLite schema
 │   ├── services/           # Analysis pipeline, document router
