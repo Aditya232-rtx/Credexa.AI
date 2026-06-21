@@ -22,7 +22,9 @@ SCHEMA_PATH = BASE_DIR / "db" / "schema.sql"
 UPLOAD_ROOT = BASE_DIR / "uploads"
 DOCUMENT_TYPES_PATH = ROOT_DIR / "documenttypes.md"
 
-DB_DSN = "dbname=credexa user=adityajadhav host=localhost port=5432"
+import os
+
+DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=adityajadhav host=localhost port=5432")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

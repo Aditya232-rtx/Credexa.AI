@@ -13,7 +13,8 @@ from services.case_pipeline import CasePipeline
 ROOT_DIR = BASE_DIR.parent
 DOCUMENT_TYPES_PATH = ROOT_DIR / "documenttypes.md"
 
-DB_DSN = "dbname=credexa user=adityajadhav host=localhost port=5432"
+import os
+DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=adityajadhav host=localhost port=5432")
 
 pipeline = CasePipeline(BASE_DIR, DB_DSN, DOCUMENT_TYPES_PATH)
 

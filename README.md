@@ -46,11 +46,10 @@ Credexa is built to handle the complexities of regional and standard documents:
 |-------|-------------|
 | **OCR & Extraction** | `pdfplumber`, `Tesseract`, `PaddleOCR` |
 | **Metadata & Forensics** | `ExifTool`, `pikepdf`, `Pillow` (ELA), `Imago Forensics` |
-| **Classification** | `LayoutLMv3`, `Donut` |
-| **NLP & Matching** | `spaCy`, `RapidFuzz` |
-| **ML & Analytics** | `scikit-learn`, `pandas` |
-| **Explainability** | `Ollama`, `Qwen2.5-7B` |
-| **Backend API** | `FastAPI`, `SQLite`, `Uvicorn` |
+| **Classification & NLP** | `LayoutLMv3`, `Donut`, `spaCy`, `RapidFuzz` |
+| **ML & Analytics** | `scikit-learn`, `pandas`, `Isolation Forest` |
+| **Backend API** | `FastAPI`, `Uvicorn` |
+| **Database & Task Queue** | `PostgreSQL`, `Redis`, `Celery` |
 | **Frontend** | `React`, `Vite`, `Tailwind CSS` |
 | **Desktop App** | `Electron` |
 
@@ -58,136 +57,99 @@ Credexa is built to handle the complexities of regional and standard documents:
 
 ## 🛠 Setup & Installation
 
-### Prerequisites
+### Option A: Using Docker Compose (Recommended)
+This is the fastest way to get everything running, as it spins up PostgreSQL, Redis, the Celery Worker, the FastAPI backend, and the React frontend automatically.
 
-| Requirement | macOS | Windows |
-|------------|-------|---------|
-| **Python** | `python3.11` (via Homebrew or pyenv) | Python 3.11 from [python.org](https://www.python.org/downloads/) |
-| **Node.js** | v18+ (via Homebrew or nvm) | v18+ from [nodejs.org](https://nodejs.org/) |
-| **Git** | Pre-installed | [git-scm.com](https://git-scm.com/downloads) |
+1. **Clone the repository:**
+```bash
+git clone https://github.com/Aditya232-rtx/Credexa.git
+cd Credexa
+```
+
+2. **Start the containers:**
+```bash
+docker-compose up --build
+```
+*The FastAPI backend will be available at `http://localhost:8765` and the React frontend at `http://localhost:5173`.*
 
 ---
 
-### macOS Setup
+### Option B: Local Native Setup (macOS / Linux)
 
+If you prefer to run the services natively without Docker, ensure you have **PostgreSQL (v14+)** and **Redis (v7+)** installed and running on default ports.
+
+1. **Clone the repository and set up a virtual environment:**
 ```bash
-# 1. Clone the repository
 git clone https://github.com/Aditya232-rtx/Credexa.git
 cd Credexa
-
-# 2. Create Python virtual environment
 python3.11 -m venv .venv
 source .venv/bin/activate
+```
 
-# 3. Install Python dependencies
-pip install -r backend/requirements.txt
+2. **Install Python Backend Dependencies:**
+```bash
+pip install -r requirements.txt
+```
 
-# 4. Install frontend dependencies
+3. **Start the Celery Worker:**
+*(Note: On macOS, use `--pool=solo` to avoid PyTorch fork issues).*
+```bash
+cd backend
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES celery -A celery_app worker --pool=solo --loglevel=info
+```
+
+4. **Start the FastAPI Backend:**
+Open a new terminal, activate the venv, and run:
+```bash
+cd backend
+uvicorn api.main:app --host 127.0.0.1 --port 8765
+```
+
+5. **Start the Frontend & Electron App:**
+Open a third terminal:
+```bash
 cd frontend
 npm install
-
-# 5. Run the app (starts backend + Electron)
 npm run dev
 ```
 
-The Electron app will open automatically. The backend (FastAPI on port 8765) is launched by Electron.
-
 ---
 
-### Windows Setup
+### Option C: Local Native Setup (Windows)
 
-> **Important**: Make sure Python 3.11 is installed and added to your system `PATH` during installation (check the box "Add Python to PATH" in the installer).
+> **Important**: Ensure PostgreSQL and Redis are running locally. You may need to use WSL2 for Redis, or a Windows port.
 
-#### Step 1: Clone the Repository
-
+1. **Setup Environment:**
 ```powershell
 git clone https://github.com/Aditya232-rtx/Credexa.git
 cd Credexa
-```
-
-#### Step 2: Create a Python Virtual Environment
-
-```powershell
-# Using Command Prompt (cmd)
 python -m venv .venv
 .venv\Scripts\activate
-
-# OR using PowerShell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
 ```
 
-> **PowerShell Execution Policy**: If you get a "running scripts is disabled" error in PowerShell, run this first:
-> ```powershell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-> ```
-
-#### Step 3: Install Python Dependencies
-
+2. **Install Dependencies:**
 ```powershell
-pip install -r python\requirements.txt
+pip install -r requirements.txt
 ```
 
-#### Step 4: Install Frontend Dependencies
+3. **Start Celery Worker (Terminal 1):**
+```powershell
+cd backend
+celery -A celery_app worker --pool=solo --loglevel=info
+```
 
+4. **Start FastAPI Backend (Terminal 2):**
+```powershell
+cd backend
+uvicorn api.main:app --host 127.0.0.1 --port 8765
+```
+
+5. **Start Frontend (Terminal 3):**
 ```powershell
 cd frontend
 npm install
-```
-
-#### Step 5: Run the Application
-
-```powershell
-# Windows needs a slightly different dev script since wait-on syntax differs.
-# Option A: Use the cross-platform dev command
-npm run dev
-
-# Option B: If the above fails, start backend and frontend separately:
-
-# Terminal 1 — Start the backend
-cd ..\python
-..\.venv\Scripts\python -m uvicorn api.main:app --host 127.0.0.1 --port 8765
-
-# Terminal 2 — Start the frontend + Electron
-cd frontend
-npx vite
-# Then in Terminal 3:
-set NODE_ENV=development && npx electron .
-```
-
-#### Troubleshooting on Windows
-
-| Issue | Solution |
-|-------|---------|
-| `python` not found | Ensure Python 3.11 is on your PATH. Try `py -3.11` instead of `python`. |
-| `npm run dev` hangs | The `wait-on` package may behave differently. Use Option B above (manual start). |
-| Electron white screen | Backend may not have started. Check that port 8765 is responding: `curl http://127.0.0.1:8765/health` |
-| PowerShell script error | Run `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` |
-| `node-gyp` build errors | Install Windows Build Tools: `npm install -g windows-build-tools` |
-| Permission denied on `.venv` | Run your terminal as Administrator, or use `cmd` instead of PowerShell. |
-
----
-
-### Linux Setup
-
-```bash
-# 1. Clone
-git clone https://github.com/Aditya232-rtx/Credexa.git
-cd Credexa
-
-# 2. Virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate
-
-# 3. Install dependencies
-pip install -r backend/requirements.txt
-cd frontend && npm install
-
-# 4. Run
 npm run dev
 ```
-
----
 
 ## 📂 Project Structure
 
@@ -196,17 +158,18 @@ Credexa/
 ├── frontend/               # React + Vite + Electron desktop app
 │   ├── electron/           # Electron main process (main.js, preload.js)
 │   ├── src/                # React application source
-│   │   ├── components/     # Shared UI components (Sidebar, Toast, DocumentCard)
-│   │   ├── views/          # Page views (Dashboard, CaseDetail, Upload)
-│   │   ├── api.js          # Backend API client
-│   │   └── App.jsx         # Main app shell
-│   └── package.json
-├── backend/                 # FastAPI backend + ML pipeline
+│   ├── package.json
+├── backend/                # FastAPI backend + ML pipeline + Celery
 │   ├── api/                # REST API endpoints
-│   ├── db/                 # SQLite schema
+│   ├── db/                 # PostgreSQL schema setup
 │   ├── services/           # Analysis pipeline, document router
-│   ├── mock_gov_apis/      # Mock government verification APIs
-│   └── requirements.txt
+│   ├── ingestion/          # LayoutLMv3, PyMuPDF extractors
+│   ├── celery_app.py       # Celery worker & Redis configuration
+│   ├── tasks.py            # Async background tasks
+│   └── mock_gov_apis/      # Mock government verification APIs
+├── docker-compose.yml      # Multi-container orchestration
+├── Dockerfile              # Backend container build instructions
+├── requirements.txt        # Python dependencies
 ├── docs/                   # Documentation, architecture diagrams
 └── README.md
 ```

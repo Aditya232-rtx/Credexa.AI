@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:14
+    container_name: credexa-db
+    environment:
+      POSTGRES_DB: credexa
+      POSTGRES_USER: adityajadhav
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: credexa-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -11,8 +31,31 @@ services:
     volumes:
       - ./:/app
     environment:
-      - PYTHONPATH=/app/python
-      - CRED_EXA_LAYOUTLMV3_MODEL=microsoft/layoutlmv3-base
+      - PYTHONPATH=/app/backend
+      - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
+      - REDIS_URL=redis://redis:6379/0
+      - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: credexa-celery
+    command: ["celery", "-A", "celery_app", "worker", "--loglevel=info"]
+    volumes:
+      - ./:/app
+    environment:
+      - PYTHONPATH=/app/backend
+      - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
+      - REDIS_URL=redis://redis:6379/0
+      - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
+    depends_on:
+      - db
+      - redis
     restart: unless-stopped
 
   frontend:
@@ -28,6 +71,9 @@ services:
       - VITE_DEV_SERVER_URL=http://localhost:5173
     command: >
       /bin/sh -c "npm install && npm run dev -- --host 0.0.0.0"
-    depends_line:
+    depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  postgres_data:

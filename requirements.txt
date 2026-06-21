@@ -24,4 +24,8 @@ requests
 transformers
 datasets
 torch
+torchvision
 sentencepiece
+psycopg2-binary
+celery
+redis

@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     exiftool \
     git \
+    libpq-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -24,10 +26,10 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 COPY . .
 
 # Set environment variables
-ENV PYTHONPATH=/app/python
+ENV PYTHONPATH=/app/backend
 ENV HOST=0.0.0.0
 
 EXPOSE 8765
 
-WORKDIR /app/python
+WORKDIR /app/backend
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8765"]
