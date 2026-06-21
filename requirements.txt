@@ -5,8 +5,7 @@ pydantic
 pdfplumber
 pytesseract
 PyMuPDF
-paddleocr
-paddlepaddle
+python-doctr[torch]
 python-docx
 openpyxl
 pandas

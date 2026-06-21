@@ -35,6 +35,9 @@ services:
       - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
       - REDIS_URL=redis://redis:6379/0
       - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
+      - OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - db
       - redis
@@ -53,6 +56,9 @@ services:
       - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
       - REDIS_URL=redis://redis:6379/0
       - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
+      - OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - db
       - redis

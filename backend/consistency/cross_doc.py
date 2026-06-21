@@ -13,6 +13,11 @@ try:  # pragma: no cover - optional dependency fallback
 except Exception:  # pragma: no cover
     fuzz = None
 
+try:
+    from sentence_transformers import SentenceTransformer, util
+    semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+except Exception:
+    semantic_model = None
 
 try:
     nlp = spacy.load("en_core_web_sm") if spacy else None
@@ -53,8 +58,13 @@ def extract_entities(text: str) -> Dict[str, List[str]]:
     }
 
 
-def _fuzzy_score(left: str, right: str) -> int:
-    if fuzz is not None:
+def _semantic_score(left: str, right: str) -> int:
+    if semantic_model:
+        emb1 = semantic_model.encode(left.lower(), convert_to_tensor=True)
+        emb2 = semantic_model.encode(right.lower(), convert_to_tensor=True)
+        cosine_scores = util.cos_sim(emb1, emb2)
+        return int(cosine_scores[0][0].item() * 100)
+    elif fuzz is not None:
         return int(fuzz.token_sort_ratio(left.lower(), right.lower()))
     return 100 if left.lower() == right.lower() else 0
 
@@ -78,9 +88,9 @@ def cross_check_documents(doc_entities_list: Sequence[Dict[str, Any]]) -> List[D
                 for right_name in docs_with_names[right_doc]:
                     if len(left_name) < 5 or len(right_name) < 5:
                         continue
-                    similarity = _fuzzy_score(left_name, right_name)
+                    similarity = _semantic_score(left_name, right_name)
                     if 75 < similarity < 85: # Increased lower bound to reduce noise
-                        flags.append({"layer": "Cross-Doc Consistency", "finding": f"Name mismatch across documents: '{left_name}' vs '{right_name}' (Similarity: {similarity:.1f}%)", "severity": "medium", "score": int((100 - similarity) * 0.8)})
+                        flags.append({"layer": "Cross-Doc Consistency", "finding": f"Name mismatch across documents: '{left_name}' vs '{right_name}' (Semantic Similarity: {similarity:.1f}%)", "severity": "medium", "score": int((100 - similarity) * 0.8)})
 
     # 2. Hard Identity Verification (DOB & PAN)
     dobs = set()

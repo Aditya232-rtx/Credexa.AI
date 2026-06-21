@@ -18,7 +18,7 @@ DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=adityajadhav host=localho
 
 pipeline = CasePipeline(BASE_DIR, DB_DSN, DOCUMENT_TYPES_PATH)
 
-@app.task(bind=True)
+@app.task(bind=True, max_retries=3, default_retry_delay=60)
 def process_case_task(self, case_id: str):
     """
     Celery task to run the case pipeline in the background.
@@ -27,7 +27,13 @@ def process_case_task(self, case_id: str):
         result = pipeline.process_case(case_id)
         return result
     except Exception as e:
-        # We can update the case status to 'failed' here if needed
-        # Or log it
         print(f"Error processing case {case_id}: {str(e)}")
-        raise
+        try:
+            self.retry(exc=e)
+        except self.MaxRetriesExceededError:
+            from db.connection import get_db_connection
+            with get_db_connection() as conn:
+                conn.autocommit = True
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE cases SET status = %s WHERE id = %s", ("failed", case_id))
+            raise

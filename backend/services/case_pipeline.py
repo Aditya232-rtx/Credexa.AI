@@ -17,6 +17,9 @@ from forensics.visual_forensics import run_ela
 from ingestion.loader import read_document
 from router.classifier import DocumentRouter
 from scoring.main import score_case
+import tempfile
+from utils.encryption import decrypt_data
+from db.connection import get_db_connection
 
 
 class CasePipeline:
@@ -26,9 +29,8 @@ class CasePipeline:
         self.documenttypes_path = documenttypes_path
         self.router = DocumentRouter(documenttypes_path=documenttypes_path)
 
-    def _connect(self) -> psycopg2.extensions.connection:
-        conn = psycopg2.connect(self.db_dsn)
-        return conn
+    def _connect(self):
+        return get_db_connection()
 
     def _insert_flag(self, cur, document_id: str | None, flag: Dict[str, Any]) -> None:
         cur.execute(
@@ -43,12 +45,8 @@ class CasePipeline:
             ),
         )
 
-    def _document_path(self, case_id: str, file_name: str) -> Path:
-        return self.base_dir / "uploads" / case_id / file_name
-
     def process_case(self, case_id: str) -> Dict[str, Any]:
-        conn = self._connect()
-        try:
+        with self._connect() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute("SELECT * FROM cases WHERE id = %s", (case_id,))
                 case = cur.fetchone()
@@ -66,88 +64,101 @@ class CasePipeline:
                 cur.execute("DELETE FROM flags WHERE document_id IS NULL AND layer IN ('Cross-Doc Consistency', 'ML Anomaly')")
 
                 for document in documents:
-                    file_path = self._document_path(case_id, document["file_name"])
-                    payload = read_document(file_path)
-                    payload["document_id"] = document["id"]
-                    payload["file_size"] = int(document["file_size"] or 0)
+                    encrypted_file_path = self.base_dir / "uploads" / case_id / f"{document['id']}.enc"
+                    
+                    if not encrypted_file_path.exists():
+                        continue
+                        
+                    file_path = None
+                    try:
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=(document["file_type"] or "")) as temp_file:
+                            encrypted_content = encrypted_file_path.read_bytes()
+                            temp_file.write(decrypt_data(encrypted_content))
+                            temp_file.flush()
+                            file_path = Path(temp_file.name)
 
-                    category = self.router.classify_document(payload)
-                    text = payload.get("text", "") or ""
-                    tables = payload.get("tables", []) or []
-                    metadata = payload.get("metadata", {}) or {}
-                    pages = payload.get("pages", []) or []
+                        payload = read_document(file_path)
+                        payload["document_id"] = document["id"]
+                        payload["file_size"] = int(document["file_size"] or 0)
 
-                    flags: List[Dict[str, Any]] = []
-                    file_type = (document["file_type"] or "").lower()
-                    if file_type == ".pdf":
-                        flags.extend(inspect_pdf(str(file_path), metadata))
-                    else:
-                        flags.extend(inspect_office_file(str(file_path), metadata))
+                        category = self.router.classify_document(payload)
+                        text = payload.get("text", "") or ""
+                        tables = payload.get("tables", []) or []
+                        metadata = payload.get("metadata", {}) or {}
+                        pages = payload.get("pages", []) or []
 
-                    if pages:
-                        for index, page in enumerate(pages):
-                            image = page.get("image")
-                            if image is not None and hasattr(image, "save"):
-                                temp_path = self.base_dir / "uploads" / case_id / f".{document['id']}-{index}.ela.jpg"
-                                try:
-                                    image.save(temp_path)
-                                    flags.extend(run_ela(str(temp_path)))
-                                finally:
-                                    if temp_path.exists():
-                                        temp_path.unlink()
+                        flags: List[Dict[str, Any]] = []
+                        file_type = (document["file_type"] or "").lower()
+                        if file_type == ".pdf":
+                            flags.extend(inspect_pdf(str(file_path), metadata))
+                        else:
+                            flags.extend(inspect_office_file(str(file_path), metadata))
 
-                    if file_type == ".xlsx":
-                        try:
-                            import openpyxl
+                        if pages:
+                            for index, page in enumerate(pages):
+                                image_path = page.get("image_path")
+                                if image_path and os.path.exists(image_path):
+                                    flags.extend(run_ela(str(image_path)))
+                                    try:
+                                        os.remove(image_path)
+                                    except Exception:
+                                        pass
 
-                            workbook = openpyxl.load_workbook(file_path, data_only=False)
-                            workbook_data = openpyxl.load_workbook(file_path, data_only=True)
-                            sheets_data: Dict[str, Any] = {}
-                            for sheet_name in workbook.sheetnames:
-                                sheet = workbook[sheet_name]
-                                data_sheet = workbook_data[sheet_name]
-                                sheet_rows: List[List[Dict[str, Any]]] = []
-                                for row_index, row in enumerate(sheet.iter_rows()):
-                                    row_data: List[Dict[str, Any]] = []
-                                    for col_index, cell in enumerate(row):
-                                        value_cell = data_sheet.cell(row=row_index + 1, column=col_index + 1)
-                                        if cell.value is None and value_cell.value is None:
-                                            continue
-                                        row_data.append(
-                                            {
-                                                "coordinate": cell.coordinate,
-                                                "formula": cell.value if cell.data_type == "f" else None,
-                                                "value": value_cell.value,
-                                                "hyperlink": cell.hyperlink.target if cell.hyperlink else None,
-                                            }
-                                        )
-                                    if row_data:
-                                        sheet_rows.append(row_data)
-                                sheets_data[sheet_name] = {"hidden": sheet.sheet_state == "hidden", "rows": sheet_rows}
-                            flags.extend(validate_bank_statement_xlsx(sheets_data))
-                        except Exception:
-                            pass
+                        if file_type == ".xlsx" or file_type == ".csv" or file_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                            try:
+                                import openpyxl
 
-                    if file_type == ".xlsx" or any(token in text.lower() for token in ["balance sheet", "profit", "loss", "reconciliation", "bank statement"]):
-                        flags.extend(validate_financials(text, tables, file_type))
+                                workbook = openpyxl.load_workbook(file_path, data_only=False)
+                                workbook_data = openpyxl.load_workbook(file_path, data_only=True)
+                                sheets_data: Dict[str, Any] = {}
+                                for sheet_name in workbook.sheetnames:
+                                    sheet = workbook[sheet_name]
+                                    data_sheet = workbook_data[sheet_name]
+                                    sheet_rows: List[List[Dict[str, Any]]] = []
+                                    for row_index, row in enumerate(sheet.iter_rows()):
+                                        row_data: List[Dict[str, Any]] = []
+                                        for col_index, cell in enumerate(row):
+                                            value_cell = data_sheet.cell(row=row_index + 1, column=col_index + 1)
+                                            if cell.value is None and value_cell.value is None:
+                                                continue
+                                            row_data.append(
+                                                {
+                                                    "coordinate": cell.coordinate,
+                                                    "formula": cell.value if cell.data_type == "f" else None,
+                                                    "value": value_cell.value,
+                                                    "hyperlink": cell.hyperlink.target if cell.hyperlink else None,
+                                                }
+                                            )
+                                        if row_data:
+                                            sheet_rows.append(row_data)
+                                    sheets_data[sheet_name] = {"hidden": sheet.sheet_state == "hidden", "rows": sheet_rows}
+                                flags.extend(validate_bank_statement_xlsx(sheets_data))
+                            except Exception:
+                                pass
 
-                    entities = extract_entities(text)
-                    doc_entities.append({"doc_id": document["id"], "entities": entities})
+                        if file_type == ".xlsx" or any(token in text.lower() for token in ["balance sheet", "profit", "loss", "reconciliation", "bank statement"]):
+                            flags.extend(validate_financials(text, tables, file_type))
 
-                    for flag in flags:
-                        self._insert_flag(cur, document["id"], flag)
+                        entities = extract_entities(text)
+                        doc_entities.append({"doc_id": document["id"], "entities": entities})
 
-                    document_results.append(
-                        {
-                            "document_id": document["id"],
-                            "file_name": document["file_name"],
-                            "category": category,
-                            "flags": flags,
-                            "entities": entities,
-                            "text_preview": text[:500],
-                        }
-                    )
-                    all_flags.extend(flags)
+                        for flag in flags:
+                            self._insert_flag(cur, document["id"], flag)
+
+                        document_results.append(
+                            {
+                                "document_id": document["id"],
+                                "file_name": document["file_name"],
+                                "category": category,
+                                "flags": flags,
+                                "entities": entities,
+                                "text_preview": text[:500],
+                            }
+                        )
+                        all_flags.extend(flags)
+                    finally:
+                        if file_path and file_path.exists():
+                            file_path.unlink()
 
                 cross_doc_flags = cross_check_documents(doc_entities)
                 for flag in cross_doc_flags:
@@ -178,6 +189,4 @@ class CasePipeline:
                 "documents": document_results,
                 "flags": all_flags,
             }
-        finally:
-            conn.close()
 

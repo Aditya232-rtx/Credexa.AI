@@ -5,8 +5,15 @@ from typing import Any, Dict, List
 
 import fitz
 import pdfplumber
-import pytesseract
+import numpy as np
 from PIL import Image
+import tempfile
+
+try:
+    from rapidocr_onnxruntime import RapidOCR
+    ocr_engine = RapidOCR()
+except ImportError:
+    ocr_engine = None
 
 try:
     import torch
@@ -21,9 +28,18 @@ _model = None
 def _get_layoutlmv3():
     global _processor, _model
     if _model is None and LAYOUTLM_AVAILABLE:
+        import os
+        torch.backends.quantized.engine = 'qnnpack'
         # Load the FUNSD fine-tuned LayoutLMv3 model for Key-Value (Header, Question, Answer) extraction
         _processor = LayoutLMv3Processor.from_pretrained("nielsr/layoutlmv3-finetuned-funsd", apply_ocr=False)
-        _model = LayoutLMv3ForTokenClassification.from_pretrained("nielsr/layoutlmv3-finetuned-funsd")
+        
+        # Look for the optimized INT8 model in the root directory
+        quantized_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "layoutlmv3_quantized.pt"))
+        if os.path.exists(quantized_path):
+            _model = torch.load(quantized_path, map_location="cpu", weights_only=False)
+        else:
+            _model = LayoutLMv3ForTokenClassification.from_pretrained("nielsr/layoutlmv3-finetuned-funsd")
+        _model.eval()
     return _processor, _model
 
 def _apply_layoutlmv3(image: Image.Image, words: List[str], boxes: List[List[int]]) -> List[str]:
@@ -85,6 +101,26 @@ def _normalize_words(words: List[Dict[str, Any]], image: Image.Image, page_width
         )
     return normalized_words
 
+def _run_paddle_ocr(image: Image.Image):
+    words = []
+    boxes = []
+    if ocr_engine is None:
+        return words, boxes
+        
+    img_array = np.array(image)
+    # rapidocr can handle RGB numpy arrays
+    result, _ = ocr_engine(img_array)
+    if result:
+        for line in result:
+            box, text, score = line
+            left = int(min([pt[0] for pt in box]))
+            top = int(min([pt[1] for pt in box]))
+            right = int(max([pt[0] for pt in box]))
+            bottom = int(max([pt[1] for pt in box]))
+            words.append(text)
+            boxes.append([left, top, right, bottom])
+    return words, boxes
+
 
 def extract_text_and_boxes_from_pdf(pdf_path: str | Path) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
@@ -96,17 +132,13 @@ def extract_text_and_boxes_from_pdf(pdf_path: str | Path) -> List[Dict[str, Any]
             words = page.extract_words() or []
 
             if not words:
-                ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+                words_list, boxes_list = _run_paddle_ocr(image)
                 words = []
-                for offset in range(len(ocr_data["text"])):
-                    text = ocr_data["text"][offset].strip()
-                    if not text:
-                        continue
-                    left = ocr_data["left"][offset]
-                    top = ocr_data["top"][offset]
-                    width = ocr_data["width"][offset]
-                    height = ocr_data["height"][offset]
-                    words.append({"text": text, "box": [left, top, left + width, top + height]})
+                for idx in range(len(words_list)):
+                    words.append({
+                        "text": words_list[idx],
+                        "box": boxes_list[idx]
+                    })
             else:
                 words = _normalize_words(words, image, page.width, page.height)
 
@@ -115,10 +147,14 @@ def extract_text_and_boxes_from_pdf(pdf_path: str | Path) -> List[Dict[str, Any]
             
             # Apply LayoutLMv3 Semantic Labelling
             labels = _apply_layoutlmv3(image, extracted_words, extracted_boxes)
+            
+            # Save image to temp file to avoid OOM
+            temp_img_path = tempfile.mktemp(suffix=".jpg")
+            image.save(temp_img_path, format="JPEG")
 
             results.append({
                 "page_num": index + 1, 
-                "image": image, 
+                "image_path": temp_img_path, 
                 "words": extracted_words, 
                 "boxes": extracted_boxes,
                 "labels": labels
@@ -128,26 +164,17 @@ def extract_text_and_boxes_from_pdf(pdf_path: str | Path) -> List[Dict[str, Any]
 
 def extract_from_image(image_path: str | Path) -> List[Dict[str, Any]]:
     image = Image.open(str(image_path)).convert("RGB")
-    ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
-    words: List[str] = []
-    boxes: List[List[int]] = []
-    for index in range(len(ocr_data["text"])):
-        text = ocr_data["text"][index].strip()
-        if not text:
-            continue
-        left = ocr_data["left"][index]
-        top = ocr_data["top"][index]
-        width = ocr_data["width"][index]
-        height = ocr_data["height"][index]
-        words.append(text)
-        boxes.append([left, top, left + width, top + height])
+    words, boxes = _run_paddle_ocr(image)
         
     # Apply LayoutLMv3 Semantic Labelling
     labels = _apply_layoutlmv3(image, words, boxes)
     
+    temp_img_path = tempfile.mktemp(suffix=".jpg")
+    image.save(temp_img_path, format="JPEG")
+    
     return [{
         "page_num": 1, 
-        "image": image, 
+        "image_path": temp_img_path, 
         "words": words, 
         "boxes": boxes,
         "labels": labels

@@ -14,6 +14,9 @@ from psycopg2.extras import RealDictCursor
 BASE_DIR = Path(__file__).resolve().parents[1]
 ROOT_DIR = BASE_DIR.parent
 sys.path.insert(0, str(BASE_DIR))
+import mimetypes
+from utils.encryption import encrypt_data, encrypt_string, decrypt_string
+from db.connection import get_db_connection
 
 from mock_gov_apis.main import router as mock_gov_router
 from tasks import process_case_task
@@ -42,14 +45,16 @@ app.add_middleware(
 
 app.include_router(mock_gov_router)
 
-def get_db() -> psycopg2.extensions.connection:
-    conn = psycopg2.connect(DB_DSN)
-    conn.autocommit = True
-    return conn
+@asynccontextmanager
+async def get_db():
+    with get_db_connection() as conn:
+        conn.autocommit = True
+        yield conn
 
 def init_db() -> None:
     UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-    with get_db() as conn:
+    with get_db_connection() as conn:
+        conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
@@ -89,25 +94,37 @@ async def upload_documents(
     case_dir = UPLOAD_ROOT / case_id
     case_dir.mkdir(parents=True, exist_ok=True)
 
-    with get_db() as conn:
+    with get_db_connection() as conn:
+        conn.autocommit = True
         with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO cases (id, applicant_name, mobile_no, address, application_type, application_subtype, status, risk_score) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                (case_id, applicant_name, mobile_no, address, application_type, application_subtype, "processing", 0),
+                (case_id, applicant_name, encrypt_string(mobile_no), encrypt_string(address), application_type, application_subtype, "processing", 0),
             )
 
             saved_files = []
+            ALLOWED_MIME_TYPES = {"application/pdf", "image/jpeg", "image/png", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"}
             for upload in files:
                 if not upload.filename:
                     raise HTTPException(status_code=400, detail="Filename cannot be empty")
-                doc_id = str(uuid.uuid4())
-                file_path = case_dir / upload.filename
+                
+                mime_type, _ = mimetypes.guess_type(upload.filename)
+                if mime_type not in ALLOWED_MIME_TYPES and upload.content_type not in ALLOWED_MIME_TYPES:
+                    raise HTTPException(status_code=400, detail=f"Unsupported file type: {upload.filename}")
+                
                 content = await upload.read()
-                file_path.write_bytes(content)
+                if len(content) > 50 * 1024 * 1024:
+                    raise HTTPException(status_code=400, detail=f"File {upload.filename} too large (max 50MB)")
+
+                doc_id = str(uuid.uuid4())
+                file_path = case_dir / f"{doc_id}.enc"
+                
+                encrypted_content = encrypt_data(content)
+                file_path.write_bytes(encrypted_content)
 
                 cur.execute(
                     "INSERT INTO documents (id, case_id, file_name, file_type, file_size, doc_category, status) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (doc_id, case_id, upload.filename, upload.content_type or file_path.suffix, len(content), "Unknown", "uploaded"),
+                    (doc_id, case_id, upload.filename, upload.content_type or Path(upload.filename).suffix, len(content), "Unknown", "uploaded"),
                 )
                 saved_files.append({"id": doc_id, "name": upload.filename})
 
@@ -121,7 +138,13 @@ def get_cases() -> dict:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT * FROM cases ORDER BY submitted_at DESC")
             cases = cur.fetchall()
-            return {"cases": [dict(row) for row in cases]}
+            cases_list = []
+            for row in cases:
+                d = dict(row)
+                d["mobile_no"] = decrypt_string(d.get("mobile_no", ""))
+                d["address"] = decrypt_string(d.get("address", ""))
+                cases_list.append(d)
+            return {"cases": cases_list}
 
 @app.get("/cases/{case_id}")
 def get_case(case_id: str) -> dict:
@@ -131,6 +154,10 @@ def get_case(case_id: str) -> dict:
             case = cur.fetchone()
             if not case:
                 raise HTTPException(status_code=404, detail="Case not found")
+            
+            case_dict = dict(case)
+            case_dict["mobile_no"] = decrypt_string(case_dict.get("mobile_no", ""))
+            case_dict["address"] = decrypt_string(case_dict.get("address", ""))
 
             cur.execute("SELECT * FROM documents WHERE case_id = %s", (case_id,))
             documents = cur.fetchall()
@@ -145,7 +172,7 @@ def get_case(case_id: str) -> dict:
             audit_log = cur.fetchall()
 
             return {
-                "case": dict(case),
+                "case": case_dict,
                 "documents": [dict(doc) for doc in documents],
                 "flags": [dict(flag) for flag in flags],
                 "audit_log": [dict(entry) for entry in audit_log],

@@ -29,3 +29,5 @@ test_docs/
 .env
 .env.local
 backend/uploads/
+*.pt
+*.onnx

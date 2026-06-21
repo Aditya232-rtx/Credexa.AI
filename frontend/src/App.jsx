@@ -1,21 +1,25 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import { ToastProvider, useToast } from './components/Toast'
 import Dashboard from './views/Dashboard'
 import CaseDetail from './views/CaseDetail'
 import Upload from './views/Upload'
 import { fetchCases, fetchCase, analyzeCase, uploadCase, fetchHealth } from './api'
+import { useStore } from './store'
+import { ErrorBoundary } from 'react-error-boundary'
 
 function AppShell() {
   const toast = useToast()
-  const [activeView, setActiveView] = useState('dash')
-  const [cases, setCases] = useState([])
-  const [selectedCaseId, setSelectedCaseId] = useState(null)
-  const [selectedCase, setSelectedCase] = useState(null)
-  const [loadingCases, setLoadingCases] = useState(true)
-  const [loadingCase, setLoadingCase] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [backendReady, setBackendReady] = useState(false)
+  const { 
+    activeView, setActiveView, 
+    cases, setCases, 
+    selectedCaseId, setSelectedCaseId,
+    selectedCase, setSelectedCase,
+    loadingCases, setLoadingCases,
+    loadingCase, setLoadingCase,
+    submitting, setSubmitting,
+    backendReady, setBackendReady
+  } = useStore()
 
   // Poll for backend readiness
   useEffect(() => {
@@ -194,10 +198,26 @@ function AppShell() {
   )
 }
 
+function ErrorFallback({ error, resetErrorBoundary }) {
+  return (
+    <div className="flex h-screen w-screen items-center justify-center bg-paper text-text-primary">
+      <div className="p-8 border border-red-500 rounded bg-red-100 text-red-900 max-w-lg">
+        <h2 className="text-xl font-bold mb-4">Something went wrong</h2>
+        <pre className="text-sm whitespace-pre-wrap">{error.message}</pre>
+        <button onClick={resetErrorBoundary} className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+          Try again
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   return (
-    <ToastProvider>
-      <AppShell />
-    </ToastProvider>
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <ToastProvider>
+        <AppShell />
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }
