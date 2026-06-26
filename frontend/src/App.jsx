@@ -79,10 +79,10 @@ function AppShell() {
     if (!selectedCaseId) return
     let cancelled = false
     setLoadingCase(true)
+    setActiveView('cases')  // switch immediately so skeleton shows during fetch
     fetchCase(selectedCaseId).then(data => {
       if (!cancelled) {
         setSelectedCase(data)
-        setActiveView('cases')
       }
     }).catch(e => {
       console.error(e)
@@ -94,14 +94,21 @@ function AppShell() {
   }, [selectedCaseId, toast])
 
   function handleNavigate(view) {
-    if (view === 'cases' && !selectedCaseId && cases.length > 0) {
-      setSelectedCaseId(cases[0].id)
+    if (view === 'cases' && !selectedCaseId) {
+      // No case selected — either auto-select first or go to dashboard
+      if (cases.length > 0) {
+        setSelectedCaseId(cases[0].id)
+      } else {
+        setActiveView('dash')
+      }
+      return
     }
     setActiveView(view)
   }
 
   function handleSelectCase(id) {
     setSelectedCaseId(id)
+    setActiveView('cases')
   }
 
   async function handleAnalyze(id) {

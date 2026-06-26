@@ -29,8 +29,17 @@ function DetailSkeleton() {
 
 
 export default function CaseDetail({ caseData, onBack, onAnalyze, loading }) {
-  if (loading && !caseData) return <DetailSkeleton />
-  if (!caseData) return null
+  if (loading) return <DetailSkeleton />
+  if (!caseData) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-muted animate-fade-in">
+      <div className="w-12 h-12 rounded-xl bg-indigo-surface border border-indigo-border flex items-center justify-center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div className="text-heading text-text-primary">No case selected</div>
+      <div className="text-body text-text-muted">Select a case from the dashboard to view details.</div>
+      <button onClick={onBack} className="mt-2 h-[32px] px-4 rounded-md border border-border text-label text-text-secondary hover:bg-raised transition-all">← Back to Dashboard</button>
+    </div>
+  )
 
   const c = caseData.case
   const docs = caseData.documents || []
