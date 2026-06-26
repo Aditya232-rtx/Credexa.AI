@@ -8,9 +8,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security.api_key import APIKeyHeader
 from psycopg2.extras import RealDictCursor
+from pydantic import BaseModel
+from loguru import logger
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ROOT_DIR = BASE_DIR.parent
@@ -43,7 +46,15 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Credexa AI - API", lifespan=lifespan)
+api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
+
+def get_api_key(api_key: str = Security(api_key_header)):
+    expected = os.environ.get("CREDEXA_API_KEY")
+    if expected and api_key != expected:
+        raise HTTPException(status_code=403, detail="Could not validate API Key")
+    return api_key
+
+app = FastAPI(title="Credexa AI - API", lifespan=lifespan, dependencies=[Depends(get_api_key)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -204,3 +215,34 @@ def get_case(case_id: str) -> dict:
 def analyze_case(case_id: str) -> dict:
     process_case_task.delay(case_id)
     return {"status": "enqueued", "case_id": case_id}
+
+class FeedbackIn(BaseModel):
+    decision: str
+    reviewer_id: str
+    notes: str = ""
+
+@app.post("/cases/{case_id}/feedback")
+def submit_feedback(case_id: str, feedback: FeedbackIn) -> dict:
+    import uuid
+    fid = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO feedback (id, case_id, reviewer_id, decision, notes) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                (fid, case_id, feedback.reviewer_id, feedback.decision, feedback.notes),
+            )
+            inserted_id = cur.fetchone()[0]
+            if feedback.decision.lower() in ("approved", "rejected"):
+                new_status = feedback.decision.lower()
+                cur.execute("UPDATE cases SET status = %s WHERE id = %s", (new_status, case_id))
+            return {"status": "success", "feedback_id": inserted_id}
+
+@app.get("/cases/{case_id}/feedback")
+def get_feedback(case_id: str) -> dict:
+    with get_db_connection() as conn:
+        conn.autocommit = True
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM feedback WHERE case_id = %s ORDER BY created_at DESC", (case_id,))
+            feedbacks = cur.fetchall()
+            return {"feedback": [dict(f) for f in feedbacks]}

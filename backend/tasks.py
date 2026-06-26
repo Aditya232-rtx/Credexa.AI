@@ -11,7 +11,7 @@ from celery_app import app
 from services.case_pipeline import CasePipeline
 
 ROOT_DIR = BASE_DIR.parent
-DOCUMENT_TYPES_PATH = ROOT_DIR / "documenttypes.md"
+DOCUMENT_TYPES_PATH = ROOT_DIR / "docs" / "documenttypes.md"
 
 import os
 DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=adityajadhav host=localhost port=5432")

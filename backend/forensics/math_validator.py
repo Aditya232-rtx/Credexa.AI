@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import json
 import urllib.request
 import re
@@ -43,14 +44,15 @@ def extract_financials_llm(text: str) -> dict:
     ''' + text[:3000]
 
     data = {
-        "model": "qwen3.5:4b",
+        "model": os.environ.get("OLLAMA_MODEL", "qwen3.5:4b"),
         "prompt": prompt,
         "format": "json",
         "stream": False
     }
     try:
+        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
         req = urllib.request.Request(
-            "http://localhost:11434/api/generate", 
+            f"{ollama_url}/api/generate", 
             data=json.dumps(data).encode('utf-8'), 
             headers={'Content-Type': 'application/json'}
         )

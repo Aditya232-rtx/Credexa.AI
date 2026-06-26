@@ -9,6 +9,11 @@ if not key_str:
     # Fallback to a generated key for local dev if not found
     key_str = Fernet.generate_key().decode()
     os.environ["ENCRYPTION_KEY"] = key_str
+    
+    # Persist it so we don't lose it on restart
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env")
+    with open(env_path, "a") as f:
+        f.write(f"\nENCRYPTION_KEY={key_str}\n")
 
 _cipher_suite = Fernet(key_str.encode('utf-8'))
 

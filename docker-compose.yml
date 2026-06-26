@@ -21,6 +21,16 @@ services:
       - "6379:6379"
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: credexa-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # We don't automatically run pull here because the API can trigger it or we can do it via a script
+
   backend:
     build:
       context: .
@@ -35,12 +45,11 @@ services:
       - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
       - REDIS_URL=redis://redis:6379/0
       - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
-      - OLLAMA_URL=http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - OLLAMA_URL=http://ollama:11434
     depends_on:
       - db
       - redis
+      - ollama
     restart: unless-stopped
 
   celery:
@@ -56,12 +65,11 @@ services:
       - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
       - REDIS_URL=redis://redis:6379/0
       - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
-      - OLLAMA_URL=http://host.docker.internal:11434
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - OLLAMA_URL=http://ollama:11434
     depends_on:
       - db
       - redis
+      - ollama
     restart: unless-stopped
 
   frontend:
@@ -83,3 +91,4 @@ services:
 
 volumes:
   postgres_data:
+  ollama_data:

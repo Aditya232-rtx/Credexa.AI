@@ -1,0 +1,187 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.wrap { padding: 1rem 0; font-family: var(--font-sans); }
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.stat { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+.stat-num { font-size: 26px; font-weight: 500; }
+.stat-lbl { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.n-green { color: #1D9E75; } .n-red { color: #E24B4A; } .n-amber { color: #BA7517; } .n-blue { color: #185FA5; }
+.filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+.chip { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); cursor: pointer; transition: all .12s; }
+.chip.on { font-weight: 500; }
+.chip-all.on { background: var(--bg-accent); border-color: var(--border-accent); color: var(--text-accent); }
+.chip-bug.on { background: #FCEBEB; border-color: #F09595; color: #A32D2D; }
+.chip-miss.on { background: #FAEEDA; border-color: #FAC775; color: #854F0B; }
+.chip-infra.on { background: #E6F1FB; border-color: #85B7EB; color: #185FA5; }
+.chip-done.on { background: #EAF3DE; border-color: #97C459; color: #3B6D11; }
+@media (prefers-color-scheme: dark) {
+  .chip-bug.on { background: #501313; border-color: #A32D2D; color: #F7C1C1; }
+  .chip-miss.on { background: #412402; border-color: #BA7517; color: #FAC775; }
+  .chip-infra.on { background: #042C53; border-color: #185FA5; color: #B5D4F4; }
+  .chip-done.on { background: #173404; border-color: #3B6D11; color: #C0DD97; }
+}
+.gap-list { display: flex; flex-direction: column; gap: 8px; }
+.gap-item { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--surface-1); cursor: pointer; transition: border-color .12s; }
+.gap-item:hover { border-color: var(--border-strong); }
+.gap-head { display: flex; align-items: center; gap: 8px; }
+.tag { font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 20px; white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; }
+.tag-bug { background: #FCEBEB; color: #A32D2D; border: 1px solid #F09595; }
+.tag-miss { background: #FAEEDA; color: #854F0B; border: 1px solid #FAC775; }
+.tag-infra { background: #E6F1FB; color: #185FA5; border: 1px solid #85B7EB; }
+.tag-done { background: #EAF3DE; color: #3B6D11; border: 1px solid #97C459; }
+@media (prefers-color-scheme: dark) {
+  .tag-bug { background: #501313; color: #F7C1C1; border-color: #A32D2D; }
+  .tag-miss { background: #412402; color: #FAC775; border-color: #854F0B; }
+  .tag-infra { background: #042C53; color: #B5D4F4; border-color: #185FA5; }
+  .tag-done { background: #173404; color: #C0DD97; border-color: #3B6D11; }
+}
+.gap-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.gap-module { font-size: 11px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+.gap-detail { margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.6; display: none; border-top: 1px solid var(--border); padding-top: 8px; }
+.gap-detail.open { display: block; }
+.fix { font-size: 11px; margin-top: 6px; color: var(--text-primary); }
+.fix strong { color: var(--text-accent); }
+</style>
+<div class="wrap">
+  <div class="summary">
+    <div class="stat"><div class="stat-num n-green">20</div><div class="stat-lbl">Modules built ✓</div></div>
+    <div class="stat"><div class="stat-num n-red">5</div><div class="stat-lbl">Bugs / will break</div></div>
+    <div class="stat"><div class="stat-num n-amber">9</div><div class="stat-lbl">Missing features</div></div>
+    <div class="stat"><div class="stat-num n-blue">6</div><div class="stat-lbl">Infra / quality</div></div>
+  </div>
+  <div class="filter-row">
+    <button class="chip chip-all on" onclick="filter('all',this)">All gaps (20)</button>
+    <button class="chip chip-bug" onclick="filter('bug',this)">🐛 Bugs (5)</button>
+    <button class="chip chip-miss" onclick="filter('miss',this)">⚠️ Missing features (9)</button>
+    <button class="chip chip-infra" onclick="filter('infra',this)">🔧 Infra / quality (6)</button>
+    <button class="chip chip-done" onclick="filter('done',this)">✅ Already built (20)</button>
+  </div>
+  <div class="gap-list" id="list"></div>
+</div>
+<script>
+const items = [
+  // BUGS
+  { type:'bug', title:'Ollama model name is wrong', module:'math_validator.py',
+    detail:'Line: model: "qwen3.5:4b" — this model does not exist on Ollama. Should be "qwen2.5:4b" (or whichever model you pulled). Every financial extraction call will silently fail and fall back to regex.',
+    fix:'Fix: change "qwen3.5:4b" → "qwen2.5:4b" in math_validator.py. Also make the model name an env var (OLLAMA_MODEL) so you can change it without a code push.' },
+  { type:'bug', title:'ENCRYPTION_KEY regenerates on every restart', module:'utils/encryption.py',
+    detail:'If ENCRYPTION_KEY is not set in the environment, a new Fernet key is generated and stored only in os.environ for that process lifetime. Every app restart produces a different key, making all previously encrypted case files permanently unreadable.',
+    fix:'Fix: persist the key to a .env file or a secrets manager. Add a startup check that aborts if no key is found and a .enc file already exists on disk. Add .env.example to the repo.' },
+  { type:'bug', title:'Ollama unreachable inside Docker on Linux', module:'docker-compose.yml',
+    detail:'docker-compose uses OLLAMA_URL=http://host.docker.internal:11434. This works on Docker Desktop (Mac/Windows) but host.docker.internal does NOT resolve on Linux (where Canara Bank will actually run this). The Celery worker and API container will time out on every LLM call.',
+    fix:'Fix: Add an Ollama container to docker-compose.yml and point OLLAMA_URL=http://ollama:11434. Pre-pull the model in a Dockerfile CMD or entrypoint script.' },
+  { type:'bug', title:'Feedback table exists but has no API endpoint', module:'api/main.py + schema.sql',
+    detail:'The feedback table is in schema.sql but there is no POST /feedback or POST /cases/{id}/feedback endpoint in api/main.py. The frontend has no way to submit reviewer decisions, so the feedback loop is completely wired to nothing.',
+    fix:'Fix: Add POST /cases/{case_id}/feedback endpoint accepting {decision, reviewer_id, notes}. Insert into feedback table. Also add GET /cases/{case_id}/feedback.' },
+  { type:'bug', title:'documenttypes.md path is wrong in tasks.py', module:'backend/tasks.py',
+    detail:'tasks.py sets DOCUMENT_TYPES_PATH = ROOT_DIR / "documenttypes.md" (project root), but the file is actually at docs/documenttypes.md. The router will silently fall back to DEFAULT_TAXONOMY only — the extended keyword list from your docs/ folder is never loaded.',
+    fix:'Fix: Change to ROOT_DIR / "docs" / "documenttypes.md" in tasks.py.' },
+
+  // MISSING FEATURES
+  { type:'miss', title:'No LLM explainability engine in scoring', module:'scoring/main.py',
+    detail:'scoring/main.py._build_summary() just does Python string concatenation of the top 3 flag texts. There is NO Ollama call here. The architecture diagram shows an "Explainability Engine (LLM-generated reasoning)" block — this is completely unbuilt. The underwriter just sees a truncated flag list, not an intelligent explanation.',
+    fix:'Build scoring/explainability.py: call Ollama with the structured flag list and prompt "Given these anomalies {flags_json}, write a 2-3 sentence explanation for a bank underwriter citing specific evidence." Wire the response into the score_case() return dict as explanation.' },
+  { type:'miss', title:'Isolation Forest has 6 generic features — misses all fraud signals', module:'anomaly/main.py',
+    detail:'Current feature vector: [text_length, flag_count, table_count, page_count, file_size, metadata_count]. These are document structure features, not fraud signals. The model cannot detect suspicious transaction patterns, round-number clustering, income anomalies, or date-gap irregularities — the actual fraud indicators.',
+    fix:'Add domain features: pct_round_numbers (% of amounts ending in 000), transaction_amount_std, income_to_credit_ratio, date_gap_std (regularity of transaction dates), ocr_confidence_avg, and flag_score_sum. These require parsing the extracted text/tables in _build_feature_vector().' },
+  { type:'miss', title:'No pattern detector (round numbers, fake sequences)', module:'anomaly/ — not built',
+    detail:'The build guide specifies a Pattern Detector module for round-number frequency and suspicious transaction sequences. This is missing entirely. Fraudsters commonly fabricate bank statements with amounts like 50,000 / 1,00,000 / 2,50,000 — statistically abnormal vs real statements.',
+    fix:'Build anomaly/pattern_detector.py: extract all monetary amounts from text via regex, compute % ending in 000 or 00000, check for monotonically increasing transactions (fabricated sequences), flag if > 40% of amounts are round numbers.' },
+  { type:'miss', title:'ITR vs Form 26AS income cross-check missing', module:'forensics/math_validator.py',
+    detail:'The math validator checks bank balance and P&L but not ITR vs TDS reconciliation. This is one of the most common fraud vectors in loan applications — declared income on ITR does not match TDS deducted (from employer records / Form 26AS). The build guide explicitly lists this check.',
+    fix:'Add validate_itr_vs_26as(text, mock_gov_client): extract declared_income from ITR text via LLM/regex, call /mock-gov/traces/26as/{pan} to get total_tds_deposited, derive tds_implied_income = total_tds / tax_rate, flag if abs(declared - implied) > 20%.' },
+  { type:'miss', title:'Font stream forensics not built in pikepdf', module:'forensics/file_forensics.py',
+    detail:'inspect_pdf() checks producer, timestamps, and XObject count but does NOT check for mismatched font subsets across pages — a strong indicator that text was pasted from another document. The build guide specifically calls this out.',
+    fix:'In inspect_pdf(): iterate pages, collect /Font → /FontDescriptor → /FontFile entries, check if font names are consistent across pages. Flag if page N uses fonts not present on page 1. Also flag if /Encoding differs across pages for the same font name.' },
+  { type:'miss', title:'Address and income not cross-checked across documents', module:'consistency/cross_doc.py',
+    detail:'cross_check_documents() compares names, PAN, and DOB only. Address and declared income are not compared. A common fraud pattern: different addresses on Aadhaar vs bank statement, or income on ITR does not match salary credits on bank statement.',
+    fix:'In extract_entities(): add regex for address lines (pincode pattern, city names) and income amounts. In cross_check_documents(): fuzzy-match addresses across docs, flag if income declared on ITR vs bank statement credits differ by > 25%.' },
+  { type:'miss', title:'PRNU sensor fingerprinting not built', module:'forensics/ — not built',
+    detail:'The architecture shows PRNU + DCT for identity documents (Aadhaar, PAN). This detects whether an ID photo was captured by a real camera (natural sensor noise pattern) or is a printed/screen-captured re-photograph of a genuine document — very common for identity forgery.',
+    fix:'Install prnu-python (pip install prnu). Build forensics/prnu_check.py: extract PRNU noise pattern from the uploaded photo, compare against a reference noise pattern from a known-genuine capture. Flag if correlation is below threshold. This is stretch/optional for MVP.' },
+  { type:'miss', title:'No feedback retraining script', module:'anomaly/isolation_forest.py — not built',
+    detail:'The feedback table is populated (once you build the endpoint) but there is no script that uses approved decisions to retrain the Isolation Forest. The model is rebuilt fresh every call from scratch with no learned baseline.',
+    fix:'Build anomaly/retrain.py: SELECT feature_vectors from approved cases in feedback table, fit IsolationForest on these as "normal" baseline, pickle the model to disk. Load pickled model in detect_anomalies() instead of fitting from scratch each time. Schedule with a Celery beat task.' },
+  { type:'miss', title:'DCT / JPEG Ghost analysis not built', module:'forensics/visual_forensics.py',
+    detail:'visual_forensics.py only implements ELA + MobileNetV3. DCT double-compression analysis (JPEG Ghost) — which detects re-saved/edited image regions more reliably than ELA alone — is missing. The architecture diagram shows DCT Compression + GAN Artifact Check.',
+    fix:'Add run_dct_ghost() in visual_forensics.py using numpy + OpenCV DCT: resave at multiple quality levels (60, 70, 80, 90), compute ghost map, flag regions with anomalously low compression error (they were already compressed before = edited). ~50 lines of numpy.' },
+
+  // INFRA / QUALITY
+  { type:'infra', title:'No Ollama service in docker-compose.yml', module:'docker-compose.yml',
+    detail:'docker-compose defines API, Celery, Redis, PostgreSQL, and frontend — but NOT Ollama. For fully offline deployment (required by Canara Bank), Ollama must run as a container with the model pre-loaded. Currently it is expected to run on the host machine outside Docker.',
+    fix:'Add ollama service to docker-compose.yml using ollama/ollama image. Mount a volume for model storage. Add an entrypoint script that runs "ollama pull qwen2.5:4b" on first start. Update OLLAMA_URL in api and celery services to http://ollama:11434.' },
+  { type:'infra', title:'No model pre-download script for offline deployment', module:'setup.sh',
+    detail:'LayoutLMv3, sentence-transformers (all-MiniLM-L6-v2), MobileNetV3, and RapidOCR models are all downloaded at first use from the internet. For offline Canara Bank deployment, all weights must be pre-bundled. setup.sh presumably handles some of this but it is not verified.',
+    fix:'Build scripts/download_models.py: call snapshot_download() for each HuggingFace model, set HF_HUB_OFFLINE=1 env var in production docker-compose.yml to prevent any internet calls at runtime. Bundle all model weights in a Docker layer or mounted volume.' },
+  { type:'infra', title:'Zero automated tests', module:'tests/ — not built',
+    detail:'test_api.py and test_imports.py exist in the root but their content is unknown and they appear to be manual scripts. Per updates.md: "We have exactly zero automated tests." No pytest suite, no jest unit tests. The math validator, ELA, cross-doc engine, and scoring have no regression coverage.',
+    fix:'Create tests/test_math_validator.py (pytest): load a known-forged bank statement PDF, assert balance mismatch flag is raised. tests/test_cross_doc.py: two docs with mismatched names, assert flag. tests/test_scoring.py: known flag set, assert score in expected range. Run in GitHub Actions.' },
+  { type:'infra', title:'print() logging — no structured logs or error tracking', module:'all backend files',
+    detail:'The entire codebase uses print() for logging including inside Celery workers. Per updates.md: "If a case silently fails after 3 retries, we have no Sentry alerts." In production at Canara Bank, this means failed analyses are invisible.',
+    fix:'pip install loguru. Replace all print() calls with from loguru import logger and logger.info/error/warning. Add SENTRY_DSN env var and sentry-sdk to requirements.txt. Initialize in api/main.py and celery_app.py. Add Prometheus metrics endpoint /metrics for queue depth.' },
+  { type:'infra', title:'No API authentication', module:'backend/api/main.py',
+    detail:'Every API endpoint — including GET /cases (which returns all applicant PII) and POST /upload — is completely unauthenticated. Any machine on the network can read all cases, upload arbitrary files, or trigger analysis. This is a hard blocker for a bank deployment.',
+    fix:'Add JWT auth or API key middleware. At minimum: generate a static CREDEXA_API_KEY env var, add an API key header check to all routes using a FastAPI dependency. For Electron: store key in Electron keychain and attach to every request in api.js.' },
+  { type:'infra', title:'LayoutLMv3 ONNX export not validated', module:'export_onnx.py / export_optimum.py',
+    detail:'export_onnx.py, export_optimum.py, and export_pytorch_quantized.py exist but the docker-compose still points to the raw HuggingFace model (CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd). Per updates.md: "Running the raw PyTorch model in Celery is a massive throughput bottleneck." The ONNX path is not wired up.',
+    fix:'Run export_onnx.py to produce layoutlmv3_quantized.onnx. Update ocr.py to use onnxruntime instead of torch.no_grad() for inference. Set CRED_EXA_LAYOUTLMV3_MODEL to the local ONNX path in docker-compose. Expected 3-5x speedup on CPU.' },
+
+  // DONE
+  { type:'done', title:'OCR pipeline (pdfplumber + RapidOCR + PyMuPDF)', module:'ingestion/ocr.py' , detail:'pdfplumber for native PDFs, RapidOCR (PaddleOCR ONNX) as fallback for scanned/image pages. PyMuPDF rasterises pages to images. Memory leak fixed — pages stream to temp files.', fix:'' },
+  { type:'done', title:'LayoutLMv3 semantic field labeling (FUNSD)', module:'ingestion/ocr.py', detail:'FUNSD fine-tuned LayoutLMv3 applied per page to label Header/Question/Answer tokens. Quantized INT8 model loaded if layoutlmv3_quantized.pt exists.', fix:'' },
+  { type:'done', title:'Office file reader (docx, xlsx, csv)', module:'ingestion/office_reader.py', detail:'Extracts text, tables, metadata, formulas, hyperlinks, hidden sheets from Word/Excel/CSV files.', fix:'' },
+  { type:'done', title:'Metadata capture (ExifTool)', module:'ingestion/metadata.py', detail:'ExifTool via subprocess, returns JSON metadata for all file types.', fix:'' },
+  { type:'done', title:'Document type router / classifier', module:'router/classifier.py', detail:'Keyword scoring across 3 categories + weak LayoutLMv3 embedding signal. Reads extended taxonomy from docs/documenttypes.md.', fix:'' },
+  { type:'done', title:'File forensics (pikepdf + timestamp + producer)', module:'forensics/file_forensics.py', detail:'Flags suspicious PDF producers (Acrobat, GIMP, Canva), CreateDate vs ModifyDate gap, XObject overlay count.', fix:'' },
+  { type:'done', title:'Visual forensics (ELA + MobileNetV3)', module:'forensics/visual_forensics.py', detail:'ELA via Pillow diff at quality 90. MobileNetV3 feature variance as deep forgery heuristic. Runs per page image.', fix:'' },
+  { type:'done', title:'Math validator (bank balance + P&L)', module:'forensics/math_validator.py', detail:'LLM extraction via Ollama for financial fields, regex fallback. Checks bank balance reconciliation and P&L gross/net profit.', fix:'' },
+  { type:'done', title:'Cross-doc consistency (names, PAN, DOB)', module:'consistency/cross_doc.py', detail:'spaCy NER + sentence-transformers semantic matching for names. Hard equality check for PAN and DOB across all documents in a case.', fix:'' },
+  { type:'done', title:'Anomaly detection (Isolation Forest, basic features)', module:'anomaly/main.py', detail:'6-feature vector per document. IsolationForest with dynamic contamination. Heuristic fallback if < 3 documents.', fix:'' },
+  { type:'done', title:'Scoring aggregator (0-100 risk score)', module:'scoring/main.py', detail:'Weighted flag scores (low=8, med=22, high=40) capped at 65 + anomaly component capped at 35. Thresholds: ≥80 flagged, ≥45 review, else cleared.', fix:'' },
+  { type:'done', title:'Mock government APIs (TRACES, MCA21, AA, Bhulekh)', module:'mock_gov_apis/main.py', detail:'FastAPI router with 4 endpoints returning canned JSON for demo identities. Included in the main API.', fix:'' },
+  { type:'done', title:'Full case pipeline orchestration', module:'services/case_pipeline.py', detail:'End-to-end: read docs → classify → forensics → ELA per page → cross-doc → anomaly → score → write flags + audit log to DB. Files decrypted to temp, cleaned up after.', fix:'' },
+  { type:'done', title:'FastAPI backend (upload, cases, analyze)', module:'api/main.py', detail:'POST /upload (multi-file, MIME validation, 50MB limit), GET /cases, GET /cases/{id}, POST /cases/{id}/analyze. Enqueues Celery task.', fix:'' },
+  { type:'done', title:'PostgreSQL schema (cases, documents, flags, audit_log, feedback)', module:'db/schema.sql', detail:'5 tables with foreign keys, indexes on case_id and status. Connection pool (SimpleConnectionPool 1-20).', fix:'' },
+  { type:'done', title:'AES-256 encryption at rest (files + PII)', module:'utils/encryption.py', detail:'Fernet AES-256 for all uploaded files (stored as .enc). PII fields (mobile_no, address) encrypted in PostgreSQL.', fix:'' },
+  { type:'done', title:'Celery + Redis async task queue', module:'celery_app.py + tasks.py', detail:'Background pipeline execution. max_retries=3 with automatic DB status rollback on failure. bind=True for retry access.', fix:'' },
+  { type:'done', title:'React frontend (Dashboard, Upload, CaseDetail)', module:'frontend/src/', detail:'Vite + React 18 + Tailwind + Zustand state store. ErrorBoundary. RiskGauge, FlagCard, DocumentCard, Toast components. Backend health polling.', fix:'' },
+  { type:'done', title:'Electron desktop wrapper', module:'frontend/electron/', detail:'main.js + preload.js. Runs as a desktop app with IPC bridge. Concurrently starts Vite dev server + Electron.', fix:'' },
+  { type:'done', title:'docker-compose.yml (API, Celery, Redis, PostgreSQL, Frontend)', module:'docker-compose.yml', detail:'5 services defined. Volume for PostgreSQL persistence. host.docker.internal for Ollama bridge (Mac only currently).', fix:'' },
+];
+
+let activeFilter = 'all';
+
+function filter(type, el) {
+  activeFilter = type;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+function toggle(id) {
+  const d = document.getElementById('d' + id);
+  if (d) d.classList.toggle('open');
+}
+
+function render() {
+  const filtered = activeFilter === 'all' ? items : items.filter(i => i.type === activeFilter);
+  document.getElementById('list').innerHTML = filtered.map((item, i) => {
+    const tagClass = `tag-${item.type}`;
+    const tagLabel = item.type === 'bug' ? '🐛 Bug' : item.type === 'miss' ? '⚠️ Feature gap' : item.type === 'infra' ? '🔧 Infra' : '✅ Built';
+    return `<div class="gap-item" onclick="toggle(${i})">
+      <div class="gap-head">
+        <span class="tag ${tagClass}">${tagLabel}</span>
+        <span class="gap-title">${item.title}</span>
+        <span class="gap-module">${item.module}</span>
+      </div>
+      <div class="gap-detail" id="d${i}">
+        ${item.detail}
+        ${item.fix ? `<div class="fix"><strong>Fix → </strong>${item.fix}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+render();
+</script>
