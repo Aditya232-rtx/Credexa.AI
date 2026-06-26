@@ -122,6 +122,8 @@ Open a new terminal, activate the venv, and run:
 ```bash
 cd backend
 uvicorn api.main:app --host 127.0.0.1 --port 8765
+
+source venv/bin/activate && cd backend && uvicorn api.main:app --host 127.0.0.1 --port 8765 --reload 2>&1 | head -30
 ```
 
 5. **Start the Frontend & Electron App:**
@@ -192,6 +194,29 @@ Credexa/
 ├── docs/                   # Documentation, architecture diagrams
 └── README.md
 ```
+
+## 🧠 Model Quantization & `.pt` Models
+
+Our analysis pipeline heavily relies on Deep Learning models, primarily **LayoutLMv3** for understanding document structure (key-value pair extraction) and semantic labeling.
+By default, the raw LayoutLMv3 PyTorch model is approximately 500MB and uses FP32 (32-bit floating point) precision. 
+
+Running this raw model inside a Celery background worker on CPU poses severe bottlenecks:
+1. **High Memory Usage**: Multiple worker threads loading FP32 models can quickly OOM (Out Of Memory) the unified memory of the host machine.
+2. **Inference Latency**: Without optimization, token classification on high-resolution OCR bounds takes several seconds per page, completely blocking the Celery queue.
+
+To solve this, we use **Dynamic INT8 Quantization** and save the optimized weights as `.pt` (PyTorch) models. Quantization reduces the model precision from 32-bit floats to 8-bit integers for the linear layers, effectively halving the memory footprint to ~240MB and providing a 2x-3x speedup on CPU inference via the `qnnpack` backend.
+
+### Generating the Optimized Models
+We have provided export scripts in the project root to generate these `.pt` models. Run the following script once before starting the backend:
+
+```bash
+# Ensure you are in your virtual environment
+source venv/bin/activate
+
+# Run the PyTorch quantization script
+python3 export_pytorch_quantized.py
+```
+This script will download the `nielsr/layoutlmv3-finetuned-funsd` model, apply PyTorch INT8 dynamic quantization, and save the output as `layoutlmv3_quantized.pt`. The backend `ocr.py` is configured to automatically load this `.pt` file if it exists, bypassing the unoptimized HuggingFace model.
 
 ## 📄 License
 

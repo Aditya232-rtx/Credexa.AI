@@ -71,7 +71,27 @@ class CasePipeline:
                         
                     file_path = None
                     try:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=(document["file_type"] or "")) as temp_file:
+                        # Derive a clean file extension — file_type can be a MIME like 'image/png' or '.pdf'
+                        raw_ft = (document["file_type"] or "").lower()
+                        if "/" in raw_ft:
+                            # MIME type: 'image/png' → '.png', 'application/pdf' → '.pdf'
+                            mime_ext_map = {
+                                "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png",
+                                "image/tiff": ".tif", "image/bmp": ".bmp",
+                                "application/pdf": ".pdf",
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+                                "application/vnd.ms-excel": ".xls",
+                            }
+                            file_ext = mime_ext_map.get(raw_ft, "." + raw_ft.split("/")[-1])
+                        elif raw_ft.startswith("."):
+                            file_ext = raw_ft
+                        elif raw_ft:
+                            file_ext = "." + raw_ft
+                        else:
+                            # Fall back to guessing from filename
+                            file_ext = Path(document.get("file_name", "")).suffix or ".bin"
+
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
                             encrypted_content = encrypted_file_path.read_bytes()
                             temp_file.write(decrypt_data(encrypted_content))
                             temp_file.flush()
@@ -88,8 +108,8 @@ class CasePipeline:
                         pages = payload.get("pages", []) or []
 
                         flags: List[Dict[str, Any]] = []
-                        file_type = (document["file_type"] or "").lower()
-                        if file_type == ".pdf":
+                        file_type = raw_ft
+                        if file_ext == ".pdf":
                             flags.extend(inspect_pdf(str(file_path), metadata))
                         else:
                             flags.extend(inspect_office_file(str(file_path), metadata))
