@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Sequence
 
+from loguru import logger
+
 SEVERITY_WEIGHTS = {
     "low": 8,
     "medium": 22,
@@ -15,7 +17,7 @@ STATUS_THRESHOLDS = [
 ]
 
 
-def score_case(flags: Sequence[Dict[str, Any]], anomaly_score: float = 0.0) -> Dict[str, Any]:
+def score_case(flags: Sequence[Dict[str, Any]], anomaly_score: float = 0.0, case_id: str = "") -> Dict[str, Any]:
     weighted_flags = 0.0
     for flag in flags:
         weighted_flags += float(flag.get("score") or SEVERITY_WEIGHTS.get(str(flag.get("severity", "low")).lower(), 8))
@@ -30,7 +32,14 @@ def score_case(flags: Sequence[Dict[str, Any]], anomaly_score: float = 0.0) -> D
             status = candidate
             break
 
-    explanation = _build_summary(flags, anomaly_score, risk_score, status)
+    # Use LLM explainability engine when available, fall back to template
+    try:
+        from scoring.explainability import generate_explanation
+        explanation = generate_explanation(flags, risk_score, status, case_id=case_id)
+    except Exception as e:
+        logger.warning(f"Explainability engine failed, using template: {e}")
+        explanation = _build_summary(flags, anomaly_score, risk_score, status)
+
     return {
         "risk_score": risk_score,
         "status": status,

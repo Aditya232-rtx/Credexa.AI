@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from loguru import logger
 
 BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
@@ -24,10 +25,12 @@ def process_case_task(self, case_id: str):
     Celery task to run the case pipeline in the background.
     """
     try:
+        logger.info(f"Starting pipeline for case {case_id}")
         result = pipeline.process_case(case_id)
+        logger.info(f"Pipeline completed for case {case_id}: score={result.get('risk_score')}, status={result.get('status')}")
         return result
     except Exception as e:
-        print(f"Error processing case {case_id}: {str(e)}")
+        logger.error(f"Error processing case {case_id}: {str(e)}")
         try:
             self.retry(exc=e)
         except self.MaxRetriesExceededError:
@@ -36,4 +39,6 @@ def process_case_task(self, case_id: str):
                 conn.autocommit = True
                 with conn.cursor() as cur:
                     cur.execute("UPDATE cases SET status = %s WHERE id = %s", ("failed", case_id))
+            logger.critical(f"Case {case_id} failed after max retries")
             raise
+
