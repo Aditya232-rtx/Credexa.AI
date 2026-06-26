@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import sys
 import uuid
+import os
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import psycopg2
 from psycopg2.extras import RealDictCursor
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ROOT_DIR = BASE_DIR.parent
 sys.path.insert(0, str(BASE_DIR))
-import mimetypes
+
 from utils.encryption import encrypt_data, encrypt_string, decrypt_string
 from db.connection import get_db_connection
 
@@ -23,16 +24,24 @@ from tasks import process_case_task
 
 SCHEMA_PATH = BASE_DIR / "db" / "schema.sql"
 UPLOAD_ROOT = BASE_DIR / "uploads"
-DOCUMENT_TYPES_PATH = ROOT_DIR / "documenttypes.md"
-
-import os
+DOCUMENT_TYPES_PATH = ROOT_DIR / "docs" / "documenttypes.md"
 
 DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=adityajadhav host=localhost port=5432")
+
+
+def init_db() -> None:
+    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+    with get_db_connection() as conn:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     yield
+
 
 app = FastAPI(title="Credexa AI - API", lifespan=lifespan)
 app.add_middleware(
@@ -45,41 +54,42 @@ app.add_middleware(
 
 app.include_router(mock_gov_router)
 
-@asynccontextmanager
-async def get_db():
-    with get_db_connection() as conn:
-        conn.autocommit = True
-        yield conn
 
-def init_db() -> None:
-    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-    with get_db_connection() as conn:
-        conn.autocommit = True
-        with conn.cursor() as cur:
-            cur.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+# ─── Health ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
 
+
+# ─── Metadata ─────────────────────────────────────────────────────────────────
+
 @app.get("/metadata/document-types")
 def document_types() -> dict:
-    # Since we moved pipeline to tasks.py, we can just load the document taxonomy directly or instantiate a lightweight reader
-    taxonomy = {}
+    import re as _re
+    taxonomy: dict = {}
     if DOCUMENT_TYPES_PATH.exists():
         current_category = None
         for line in DOCUMENT_TYPES_PATH.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
+            stripped = line.strip()
+            if not stripped:
                 continue
-            if line.startswith("- **") and "**:" in line:
-                cat = line.replace("- **", "").split("**:")[0].strip()
+            # Match: ## **1. Land & Property Records**
+            if stripped.startswith("## ") and "**" in stripped:
+                cat = stripped.replace("## ", "").replace("**", "").strip()
+                cat = _re.sub(r"^\d+\.\s*", "", cat).strip()
                 current_category = cat
                 taxonomy[current_category] = []
-            elif line.startswith("- ") and current_category:
-                doc_type = line.replace("- ", "").strip()
-                taxonomy[current_category].append(doc_type)
+            # Match: - **Sale Deed (Deed of Conveyance):** description
+            elif stripped.startswith("- **") and current_category:
+                inner = stripped[4:]
+                name = inner.split("**")[0].rstrip(":").strip()
+                if name:
+                    taxonomy[current_category].append(name)
     return {"categories": list(taxonomy.keys()), "taxonomy": taxonomy}
+
+
+# ─── Upload ───────────────────────────────────────────────────────────────────
 
 @app.post("/upload")
 async def upload_documents(
@@ -94,6 +104,14 @@ async def upload_documents(
     case_dir = UPLOAD_ROOT / case_id
     case_dir.mkdir(parents=True, exist_ok=True)
 
+    ALLOWED_MIME_TYPES = {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+    }
+
     with get_db_connection() as conn:
         conn.autocommit = True
         with conn.cursor() as cur:
@@ -103,22 +121,20 @@ async def upload_documents(
             )
 
             saved_files = []
-            ALLOWED_MIME_TYPES = {"application/pdf", "image/jpeg", "image/png", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"}
             for upload in files:
                 if not upload.filename:
                     raise HTTPException(status_code=400, detail="Filename cannot be empty")
-                
+
                 mime_type, _ = mimetypes.guess_type(upload.filename)
                 if mime_type not in ALLOWED_MIME_TYPES and upload.content_type not in ALLOWED_MIME_TYPES:
                     raise HTTPException(status_code=400, detail=f"Unsupported file type: {upload.filename}")
-                
+
                 content = await upload.read()
                 if len(content) > 50 * 1024 * 1024:
                     raise HTTPException(status_code=400, detail=f"File {upload.filename} too large (max 50MB)")
 
                 doc_id = str(uuid.uuid4())
                 file_path = case_dir / f"{doc_id}.enc"
-                
                 encrypted_content = encrypt_data(content)
                 file_path.write_bytes(encrypted_content)
 
@@ -128,13 +144,16 @@ async def upload_documents(
                 )
                 saved_files.append({"id": doc_id, "name": upload.filename})
 
-    # Trigger Celery Task
     process_case_task.delay(case_id)
     return {"case_id": case_id, "status": "processing", "files": saved_files}
 
+
+# ─── Cases ────────────────────────────────────────────────────────────────────
+
 @app.get("/cases")
 def get_cases() -> dict:
-    with get_db() as conn:
+    with get_db_connection() as conn:
+        conn.autocommit = True
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT * FROM cases ORDER BY submitted_at DESC")
             cases = cur.fetchall()
@@ -146,28 +165,30 @@ def get_cases() -> dict:
                 cases_list.append(d)
             return {"cases": cases_list}
 
+
 @app.get("/cases/{case_id}")
 def get_case(case_id: str) -> dict:
-    with get_db() as conn:
+    with get_db_connection() as conn:
+        conn.autocommit = True
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("SELECT * FROM cases WHERE id = %s", (case_id,))
             case = cur.fetchone()
             if not case:
                 raise HTTPException(status_code=404, detail="Case not found")
-            
+
             case_dict = dict(case)
             case_dict["mobile_no"] = decrypt_string(case_dict.get("mobile_no", ""))
             case_dict["address"] = decrypt_string(case_dict.get("address", ""))
 
             cur.execute("SELECT * FROM documents WHERE case_id = %s", (case_id,))
             documents = cur.fetchall()
-            
+
             cur.execute(
                 "SELECT f.* FROM flags f LEFT JOIN documents d ON d.id = f.document_id WHERE d.case_id = %s OR f.document_id IS NULL",
                 (case_id,),
             )
             flags = cur.fetchall()
-            
+
             cur.execute("SELECT * FROM audit_log WHERE case_id = %s ORDER BY created_at DESC", (case_id,))
             audit_log = cur.fetchall()
 
@@ -178,9 +199,8 @@ def get_case(case_id: str) -> dict:
                 "audit_log": [dict(entry) for entry in audit_log],
             }
 
+
 @app.post("/cases/{case_id}/analyze")
 def analyze_case(case_id: str) -> dict:
-    # We can just enqueue it again via Celery
     process_case_task.delay(case_id)
     return {"status": "enqueued", "case_id": case_id}
-

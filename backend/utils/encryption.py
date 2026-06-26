@@ -30,4 +30,8 @@ def encrypt_string(text: str) -> str:
 def decrypt_string(token: str) -> str:
     if not token:
         return token
-    return decrypt_data(token).decode('utf-8')
+    try:
+        return decrypt_data(token).decode('utf-8')
+    except Exception:
+        # Value was stored before encryption was active — return as-is
+        return token
