@@ -6,7 +6,7 @@ services:
     container_name: credexa-db
     environment:
       POSTGRES_DB: credexa
-      POSTGRES_USER: adityajadhav
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
@@ -42,7 +42,7 @@ services:
       - ./:/app
     environment:
       - PYTHONPATH=/app/backend
-      - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
+      - DB_DSN=dbname=credexa user=postgres password=password host=db port=5432
       - REDIS_URL=redis://redis:6379/0
       - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
       - OLLAMA_URL=http://ollama:11434
@@ -62,7 +62,7 @@ services:
       - ./:/app
     environment:
       - PYTHONPATH=/app/backend
-      - DB_DSN=dbname=credexa user=adityajadhav password=password host=db port=5432
+      - DB_DSN=dbname=credexa user=postgres password=password host=db port=5432
       - REDIS_URL=redis://redis:6379/0
       - CRED_EXA_LAYOUTLMV3_MODEL=nielsr/layoutlmv3-finetuned-funsd
       - OLLAMA_URL=http://ollama:11434
@@ -78,6 +78,7 @@ services:
     working_dir: /app/frontend
     volumes:
       - ./frontend:/app/frontend
+      - node_modules_volume:/app/frontend/node_modules
     ports:
       - "5173:5173"
     environment:
@@ -92,3 +93,4 @@ services:
 volumes:
   postgres_data:
   ollama_data:
+  node_modules_volume:

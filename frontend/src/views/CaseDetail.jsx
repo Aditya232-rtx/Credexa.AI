@@ -1,4 +1,4 @@
-import { ArrowLeft, File as FileIcon, Clock, RefreshCw } from 'lucide-react'
+import { ArrowLeft, File as FileIcon, Clock, RefreshCw, AlertTriangle } from 'lucide-react'
 import RiskGauge from '../components/RiskGauge'
 import FlagCard from '../components/FlagCard'
 
@@ -28,8 +28,23 @@ function DetailSkeleton() {
 
 
 
-export default function CaseDetail({ caseData, onBack, onAnalyze, loading }) {
+export default function CaseDetail({ caseData, onBack, onAnalyze, loading, error, onRetry }) {
   if (loading) return <DetailSkeleton />
+  if (error) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-muted animate-fade-in">
+      <div className="w-16 h-16 rounded-2xl bg-alarm-surface border border-alarm-border flex items-center justify-center mb-2">
+        <AlertTriangle size={28} className="text-alarm" />
+      </div>
+      <div className="text-heading text-text-primary">Failed to load case</div>
+      <div className="text-body text-text-muted max-w-[320px] text-center">{error}</div>
+      <div className="flex gap-3 mt-2">
+        <button onClick={onRetry} className="h-[36px] bg-indigo hover:bg-indigo-mid text-white px-5 rounded-md text-label flex items-center gap-2 transition-all">
+          <RefreshCw size={14} /> Retry
+        </button>
+        <button onClick={onBack} className="h-[36px] px-4 rounded-md border border-border text-label text-text-secondary hover:bg-raised transition-all">← Back to Dashboard</button>
+      </div>
+    </div>
+  )
   if (!caseData) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-muted animate-fade-in">
       <div className="w-12 h-12 rounded-xl bg-indigo-surface border border-indigo-border flex items-center justify-center">

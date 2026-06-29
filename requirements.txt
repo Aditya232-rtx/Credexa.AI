@@ -3,9 +3,7 @@ uvicorn[standard]
 python-multipart
 pydantic
 pdfplumber
-pytesseract
 PyMuPDF
-python-doctr[torch]
 python-docx
 openpyxl
 pandas
@@ -17,8 +15,9 @@ spacy
 rapidfuzz
 scikit-learn
 pyod
-langchain
-langchain-community
+loguru
+rapidocr_onnxruntime
+sentence-transformers
 requests
 transformers
 datasets
@@ -28,3 +27,7 @@ sentencepiece
 psycopg2-binary
 celery
 redis
+slowapi
+sentry-sdk
+prometheus-client
+prometheus-fastapi-instrumentator

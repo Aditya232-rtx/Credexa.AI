@@ -4,6 +4,7 @@ import { ToastProvider, useToast } from './components/Toast'
 import Dashboard from './views/Dashboard'
 import CaseDetail from './views/CaseDetail'
 import Upload from './views/Upload'
+import Reports from './views/Reports'
 import { fetchCases, fetchCase, analyzeCase, uploadCase, fetchHealth } from './api'
 import { useStore } from './store'
 import { ErrorBoundary } from 'react-error-boundary'
@@ -18,7 +19,9 @@ function AppShell() {
     loadingCases, setLoadingCases,
     loadingCase, setLoadingCase,
     submitting, setSubmitting,
-    backendReady, setBackendReady
+    backendReady, setBackendReady,
+    casesError, setCasesError,
+    caseError, setCaseError,
   } = useStore()
 
   // Poll for backend readiness
@@ -55,9 +58,11 @@ function AppShell() {
     try {
       const res = await fetchCases()
       setCases(res.cases || [])
+      setCasesError(null)
     } catch (e) {
       console.error(e)
-      toast.error('Could not load cases from the backend.', 'Fetch Error')
+      setCasesError(e.message || 'Connection failed')
+      if (!silent) toast.error('Could not load cases from the backend.', 'Fetch Error')
     } finally {
       if (!silent) setLoadingCases(false)
     }
@@ -79,14 +84,18 @@ function AppShell() {
     if (!selectedCaseId) return
     let cancelled = false
     setLoadingCase(true)
-    setActiveView('cases')  // switch immediately so skeleton shows during fetch
+    setCaseError(null)
+    setActiveView('cases')
     fetchCase(selectedCaseId).then(data => {
       if (!cancelled) {
         setSelectedCase(data)
       }
     }).catch(e => {
       console.error(e)
-      if (!cancelled) toast.error(`Failed to load case ${selectedCaseId}`, 'Fetch Error')
+      if (!cancelled) {
+        setCaseError(e.message || 'Failed to load case')
+        toast.error(`Failed to load case ${selectedCaseId}`, 'Fetch Error')
+      }
     }).finally(() => {
       if (!cancelled) setLoadingCase(false)
     })
@@ -177,8 +186,10 @@ function AppShell() {
               <Dashboard
                 cases={cases}
                 loading={loadingCases}
+                error={casesError}
                 onSelectCase={handleSelectCase}
                 onNewCase={() => handleNavigate('upload')}
+                onRetry={() => loadCases()}
               />
             )}
 
@@ -186,8 +197,12 @@ function AppShell() {
               <CaseDetail
                 caseData={selectedCase}
                 loading={loadingCase}
+                error={caseError}
                 onAnalyze={handleAnalyze}
                 onBack={() => handleNavigate('dash')}
+                onRetry={() => {
+                  setSelectedCaseId(selectedCaseId)
+                }}
               />
             )}
 
@@ -197,6 +212,10 @@ function AppShell() {
                 submitting={submitting}
                 onCancel={() => handleNavigate('dash')}
               />
+            )}
+
+            {activeView === 'reports' && (
+              <Reports />
             )}
           </>
         )}

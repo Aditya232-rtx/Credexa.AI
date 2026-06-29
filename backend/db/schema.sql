@@ -24,11 +24,13 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE TABLE IF NOT EXISTS flags (
     id TEXT PRIMARY KEY,
+    case_id TEXT,
     document_id TEXT,
     layer TEXT, -- File Forensics, Visual Forensics, etc.
     finding TEXT,
     severity TEXT, -- low, medium, high
     score INTEGER,
+    FOREIGN KEY(case_id) REFERENCES cases(id),
     FOREIGN KEY(document_id) REFERENCES documents(id)
 );
 

@@ -9,6 +9,8 @@ import numpy as np
 from PIL import Image
 import tempfile
 
+from loguru import logger
+
 try:
     from rapidocr_onnxruntime import RapidOCR
     ocr_engine = RapidOCR()
@@ -18,6 +20,7 @@ except ImportError:
 try:
     import torch
     from transformers import LayoutLMv3Processor, LayoutLMv3ForTokenClassification
+    from utils.device import get_device, set_quantized_engine
     LAYOUTLM_AVAILABLE = True
 except ImportError:
     LAYOUTLM_AVAILABLE = False
@@ -29,16 +32,15 @@ def _get_layoutlmv3():
     global _processor, _model
     if _model is None and LAYOUTLM_AVAILABLE:
         import os
-        torch.backends.quantized.engine = 'qnnpack'
-        # Load the FUNSD fine-tuned LayoutLMv3 model for Key-Value (Header, Question, Answer) extraction
+        set_quantized_engine()
         _processor = LayoutLMv3Processor.from_pretrained("nielsr/layoutlmv3-finetuned-funsd", apply_ocr=False)
-        
-        # Look for the optimized INT8 model in the root directory
+        device = get_device()
         quantized_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "layoutlmv3_quantized.pt"))
         if os.path.exists(quantized_path):
-            _model = torch.load(quantized_path, map_location="cpu", weights_only=False)
+            _model = torch.load(quantized_path, map_location=device, weights_only=True)
         else:
             _model = LayoutLMv3ForTokenClassification.from_pretrained("nielsr/layoutlmv3-finetuned-funsd")
+        _model.to(device)
         _model.eval()
     return _processor, _model
 
@@ -64,7 +66,10 @@ def _apply_layoutlmv3(image: Image.Image, words: List[str], boxes: List[List[int
         with torch.no_grad():
             outputs = model(**encoding)
         
-        predictions = outputs.logits.argmax(-1).squeeze().tolist()
+        predictions = outputs.logits.argmax(-1).squeeze()
+        if predictions.dim() == 0:
+            predictions = predictions.unsqueeze(0)
+        predictions = predictions.tolist()
         
         labels = []
         word_ids = encoding.word_ids(0)
@@ -85,7 +90,7 @@ def _apply_layoutlmv3(image: Image.Image, words: List[str], boxes: List[List[int
             
         return labels[:len(words)]
     except Exception as e:
-        print(f"LayoutLMv3 Error: {e}")
+        logger.warning(f"LayoutLMv3 Error: {e}")
         return ["O"] * len(words)
 
 def _normalize_words(words: List[Dict[str, Any]], image: Image.Image, page_width: float, page_height: float) -> List[Dict[str, Any]]:

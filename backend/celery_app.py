@@ -1,16 +1,14 @@
 import os
 from celery import Celery
-
-# Default PostgreSQL database URL and Redis URL
-# We use synchronous psycopg2 connection string format here or sqlalchemy if preferred,
-# but for celery we just need the broker string.
+from loguru import logger
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+RESULT_BACKEND = os.environ.get("RESULT_BACKEND", f"{REDIS_URL}/1")
 
 app = Celery(
     "credexa_worker",
     broker=REDIS_URL,
-    backend=REDIS_URL,
+    backend=RESULT_BACKEND,
     include=["tasks"]
 )
 
@@ -24,4 +22,5 @@ app.conf.update(
 )
 
 if __name__ == "__main__":
+    logger.info("Starting Celery worker...")
     app.start()

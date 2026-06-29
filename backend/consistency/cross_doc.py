@@ -1,3 +1,10 @@
+"""Cross-document consistency checks (ITR vs 26AS, income vs credits, entity extraction).
+
+Note: Entity extraction and textual analysis are optimized for Latin-script content.
+Documents primarily in Devanagari or other non-Latin scripts may have reduced
+accuracy and should be reviewed manually.
+"""
+
 from __future__ import annotations
 
 import re
@@ -13,27 +20,51 @@ try:  # pragma: no cover - optional dependency fallback
 except Exception:  # pragma: no cover
     fuzz = None
 
-try:
-    from sentence_transformers import SentenceTransformer, util
-    semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
-except Exception:
-    semantic_model = None
 
-try:
-    nlp = spacy.load("en_core_web_sm") if spacy else None
-except Exception:
-    nlp = None
+# Lazy-loaded models
+_semantic_model = None
+_nlp = None
+
+
+def _get_semantic_model():
+    global _semantic_model
+    if _semantic_model is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+        except Exception:
+            _semantic_model = False  # Mark as unavailable
+    return _semantic_model if _semantic_model is not False else None
+
+
+def _get_nlp():
+    global _nlp
+    if _nlp is None:
+        if spacy:
+            try:
+                _nlp = spacy.load("en_core_web_sm")
+            except Exception:
+                _nlp = False
+        else:
+            _nlp = False
+    return _nlp if _nlp is not False else None
 
 
 def extract_entities(text: str) -> Dict[str, List[str]]:
     if not text:
         return {"names": [], "dates": [], "orgs": [], "amounts": []}
 
+    nlp = _get_nlp()
     if nlp is None:
         amount_matches = re.findall(r"(?:₹|rs\.?|inr)?\s?[0-9][0-9,]*(?:\.[0-9]+)?", text, flags=re.I)
         return {"names": [], "dates": [], "orgs": [], "amounts": amount_matches[:10]}
 
-    document = nlp(text[:100000])
+    # Truncate at word boundary to avoid splitting entities
+    truncate_at = 100000
+    if len(text) > truncate_at:
+        text = text[:truncate_at].rsplit(' ', 1)[0]
+
+    document = nlp(text)
     names, dates, orgs = set(), set(), set()
     for entity in document.ents:
         if entity.label_ == "PERSON":
@@ -48,14 +79,15 @@ def extract_entities(text: str) -> Dict[str, List[str]]:
     dob_match = re.search(r"DOB:?\s*([\dA-Za-z-]+)", text, re.IGNORECASE)
     pan_match = re.search(r"PAN:?\s*([A-Z0-9]{10})", text, re.IGNORECASE)
 
-    # Address extraction — look for pincode patterns and surrounding lines
+    # Address extraction — improved: look for pincode and capture surrounding lines
     address_lines = []
-    pincode_match = re.search(r"\b(\d{6})\b", text)
-    if pincode_match:
-        # Grab up to 100 chars around the pincode as the address context
-        start = max(0, pincode_match.start() - 100)
-        end = min(len(text), pincode_match.end() + 20)
-        address_lines.append(text[start:end].replace("\n", " ").strip())
+    pincode_matches = list(re.finditer(r"\b(\d{6})\b", text))
+    for pincode_match in pincode_matches[:3]:  # Limit to first 3 pincodes
+        start = max(0, pincode_match.start() - 150)
+        end = min(len(text), pincode_match.end() + 50)
+        context = text[start:end].replace("\n", " ").strip()
+        if len(context) > 10:
+            address_lines.append(context)
 
     # Income extraction — look for declared income / total income / gross salary
     income_match = re.search(
@@ -95,9 +127,11 @@ def extract_entities(text: str) -> Dict[str, List[str]]:
 
 
 def _semantic_score(left: str, right: str) -> int:
+    semantic_model = _get_semantic_model()
     if semantic_model:
         emb1 = semantic_model.encode(left.lower(), convert_to_tensor=True)
         emb2 = semantic_model.encode(right.lower(), convert_to_tensor=True)
+        from sentence_transformers import util
         cosine_scores = util.cos_sim(emb1, emb2)
         return int(cosine_scores[0][0].item() * 100)
     elif fuzz is not None:

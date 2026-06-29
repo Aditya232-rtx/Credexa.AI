@@ -6,6 +6,8 @@ import urllib.request
 import re
 from typing import Any, Dict, List, Sequence
 
+from loguru import logger
+
 
 def clean_indian_currency(text: Any) -> float:
     if not isinstance(text, str):
@@ -14,7 +16,13 @@ def clean_indian_currency(text: Any) -> float:
         except (ValueError, TypeError):
             return 0.0
 
-    cleaned = re.sub(r"[^\d.-]", "", text)
+    # Remove currency symbols and spaces, keep digits, dots, commas, leading minus
+    cleaned = re.sub(r"[^\d.,-]", "", text)
+    cleaned = cleaned.lstrip('.')
+    # Handle trailing minus (e.g., "50,000-")
+    if cleaned.endswith("-"):
+        cleaned = "-" + cleaned.rstrip("-")
+    cleaned = cleaned.replace(",", "")
     try:
         return float(cleaned)
     except ValueError:
@@ -32,6 +40,70 @@ def validate_bank_statement_xlsx(sheets_data: Dict[str, Any]) -> List[Dict[str, 
                 formula = cell.get("formula")
                 if formula and "HYPERLINK" in str(formula).upper():
                     flags.append({"layer": "Math Validator", "finding": f"External hyperlink formula found in cell {cell.get('coordinate')}", "severity": "low", "score": 10})
+    return flags
+
+
+def _extract_itr_income(text: str) -> float | None:
+    """Extract total income from ITR document."""
+    patterns = [
+        r"Total\s+Income[:\s]*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"Gross\s+Total\s+Income[:\s]*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"Net\s+Income[:\s]*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            try:
+                return clean_indian_currency(match.group(1))
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+def _extract_26as_credits(text: str) -> float | None:
+    """Extract total credits from Form 26AS."""
+    patterns = [
+        r"Total\s+Credits?[:\s]*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"Tax\s+Deducted\s+at\s+Source[:\s]*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
+        r"TDS\s+Total[:\s]*(?:₹|rs\.?|inr)?\s*([\d,]+(?:\.\d{1,2})?)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            try:
+                return clean_indian_currency(match.group(1))
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
+def validate_itr_vs_26as(itr_text: str, form26as_text: str) -> List[Dict[str, Any]]:
+    """
+    Cross-check ITR declared income vs Form 26AS credits.
+    Significant discrepancy (>25%) indicates potential income concealment.
+    """
+    flags: List[Dict[str, Any]] = []
+    
+    itr_income = _extract_itr_income(itr_text)
+    form26as_credits = _extract_26as_credits(form26as_text)
+    
+    if itr_income is not None and form26as_credits is not None and itr_income > 0:
+        ratio = abs(form26as_credits - itr_income) / itr_income
+        if ratio > 0.25:
+            flags.append({
+                "layer": "Math Validator",
+                "finding": f"ITR vs 26AS Discrepancy: Declared income ₹{itr_income:,.0f} vs 26AS credits ₹{form26as_credits:,.0f} (difference {ratio*100:.0f}%). Potential income concealment.",
+                "severity": "high",
+                "score": 80,
+            })
+        elif ratio > 0.10:
+            flags.append({
+                "layer": "Math Validator",
+                "finding": f"ITR vs 26AS Minor Discrepancy: Declared income ₹{itr_income:,.0f} vs 26AS credits ₹{form26as_credits:,.0f} (difference {ratio*100:.0f}%).",
+                "severity": "medium",
+                "score": 40,
+            })
+    
     return flags
 
 
@@ -60,8 +132,9 @@ def extract_financials_llm(text: str) -> dict:
             result = json.loads(response.read())
             return json.loads(result.get("response", "{}"))
     except Exception as e:
-        print(f"Ollama LLM Error: {e}")
+        logger.warning(f"Ollama LLM Error: {e}")
         return {}
+
 
 def validate_financials(text: str, tables: Sequence[Sequence[Any]], file_type: str) -> List[Dict[str, Any]]:
     flags: List[Dict[str, Any]] = []
@@ -163,4 +236,27 @@ def validate_financials(text: str, tables: Sequence[Sequence[Any]], file_type: s
     lowered = (text or "").lower()
     if "reconciliation failure" in lowered or "suspicious balance" in lowered:
         flags.append({"layer": "Math Validator", "finding": "Balance reconciliation failed. Computed sum does not match stated closing balance.", "severity": "high", "score": 80})
+
+    # ITR vs Form 26AS Cross-Check
+    if file_type in ("itr", "form_26as", "tax_return"):
+        # We need both documents - check if we can extract both
+        itr_income = _extract_itr_income(text)
+        form26as_credits = _extract_26as_credits(text)
+        if itr_income is not None and form26as_credits is not None and itr_income > 0:
+            ratio = abs(form26as_credits - itr_income) / itr_income
+            if ratio > 0.25:
+                flags.append({
+                    "layer": "Math Validator",
+                    "finding": f"ITR vs 26AS Discrepancy: Declared income ₹{itr_income:,.0f} vs 26AS credits ₹{form26as_credits:,.0f} (difference {ratio*100:.0f}%). Potential income concealment.",
+                    "severity": "high",
+                    "score": 80,
+                })
+            elif ratio > 0.10:
+                flags.append({
+                    "layer": "Math Validator",
+                    "finding": f"ITR vs 26AS Minor Discrepancy: Declared income ₹{itr_income:,.0f} vs 26AS credits ₹{form26as_credits:,.0f} (difference {ratio*100:.0f}%).",
+                    "severity": "medium",
+                    "score": 40,
+                })
+
     return flags

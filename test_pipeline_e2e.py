@@ -525,8 +525,7 @@ def main():
 
     # Try running the pipeline directly if Celery is unavailable
     print("  Running pipeline directly (bypassing Celery)...")
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
-    os.environ.setdefault("DB_DSN", "dbname=credexa user=adityajadhav host=localhost port=5432")
+    os.environ.setdefault("DB_DSN", "dbname=credexa user=postgres host=localhost port=5432")
 
     try:
         from pathlib import Path

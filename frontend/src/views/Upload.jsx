@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Upload as UploadIcon, User, Phone, MapPin, Briefcase, ChevronDown } from 'lucide-react'
 import { DocumentCard } from '../components/DocumentCard'
 
@@ -19,6 +19,12 @@ export default function Upload({ onSubmit, submitting, onCancel }) {
   const fileInputRef = useRef(null)
   const dragCounter = useRef(0)
 
+  useEffect(() => {
+    if (window.credexa?.openFiles) {
+      window.credexa.openFiles().catch(() => {})
+    }
+  }, [])
+
   function handleFiles(fileList) {
     const arr = Array.from(fileList)
     setSelectedFiles(prev => {
@@ -26,6 +32,31 @@ export default function Upload({ onSubmit, submitting, onCancel }) {
       const newFiles = arr.filter(f => !existing.has(f.name + f.size))
       return [...prev, ...newFiles]
     })
+  }
+
+  async function handleNativeFilePick(e) {
+    e?.preventDefault()
+    if (window.credexa?.openFiles) {
+      const paths = await window.credexa.openFiles()
+      if (paths?.length) {
+        const filePromises = paths.map(async p => {
+          const fileData = await window.credexa.readFile(p)
+          const byteChars = atob(fileData.data)
+          const byteNums = new Array(byteChars.length)
+          for (let i = 0; i < byteChars.length; i++) {
+            byteNums[i] = byteChars.charCodeAt(i)
+          }
+          const byteArray = new Uint8Array(byteNums)
+          return new File([byteArray], fileData.name, { type: fileData.type })
+        })
+        const newFiles = await Promise.all(filePromises)
+        setSelectedFiles(prev => {
+          const existing = new Set(prev.map(f => f.name + f.size))
+          const unique = newFiles.filter(f => !existing.has(f.name + f.size))
+          return [...prev, ...unique]
+        })
+      }
+    }
   }
 
   const handleDragEnter = useCallback((e) => {
@@ -219,24 +250,35 @@ export default function Upload({ onSubmit, submitting, onCancel }) {
               All processing happens locally — no data leaves your machine
             </div>
             <div className="flex flex-wrap gap-2 justify-center">
-              {['.pdf', '.jpg', '.png', '.tiff'].map(ext => (
-                <button
-                  key={ext}
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1 rounded-[6px] bg-white border border-[#E5E7EB] hover:bg-raised text-[11px] font-mono font-semibold text-[#8B8D98] transition-colors"
-                >
-                  {ext}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={handleNativeFilePick}
+                className="px-4 py-2 rounded-[8px] bg-indigo hover:bg-indigo-mid text-white text-[13px] font-semibold transition-colors shadow-[0_2px_4px_rgba(79,70,229,0.15)]"
+              >
+                Browse Files
+              </button>
+              {!window.credexa?.openFiles && (
+                <>
+                  {['.pdf', '.jpg', '.png', '.tiff'].map(ext => (
+                    <button
+                      key={ext}
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1 rounded-[6px] bg-white border border-[#E5E7EB] hover:bg-raised text-[11px] font-mono font-semibold text-[#8B8D98] transition-colors"
+                    >
+                      {ext}
+                    </button>
+                  ))}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={e => handleFiles(e.dataTransfer ? e.dataTransfer.files : e.target.files)}
+                  />
+                </>
+              )}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={e => handleFiles(e.target.files)}
-            />
           </div>
 
           {/* Processing Queue List */}

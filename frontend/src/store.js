@@ -9,7 +9,9 @@ export const useStore = create((set) => ({
   loadingCase: false,
   submitting: false,
   backendReady: false,
-  
+  casesError: null,
+  caseError: null,
+
   setActiveView: (view) => set({ activeView: view }),
   setCases: (cases) => set({ cases }),
   setSelectedCaseId: (id) => set({ selectedCaseId: id }),
@@ -17,5 +19,7 @@ export const useStore = create((set) => ({
   setLoadingCases: (loading) => set({ loadingCases: loading }),
   setLoadingCase: (loading) => set({ loadingCase: loading }),
   setSubmitting: (submitting) => set({ submitting }),
-  setBackendReady: (ready) => set({ backendReady: ready })
+  setBackendReady: (ready) => set({ backendReady: ready }),
+  setCasesError: (error) => set({ casesError: error }),
+  setCaseError: (error) => set({ caseError: error }),
 }))

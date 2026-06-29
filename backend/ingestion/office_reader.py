@@ -1,7 +1,11 @@
 import docx
 import openpyxl
-import pandas as pd
 import os
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 def parse_docx(file_path):
     """
@@ -90,6 +94,8 @@ def parse_csv(file_path):
     """
     Parses .csv files into standard text and data representations.
     """
+    if pd is None:
+        return {"metadata": {}, "text": "", "tables": []}
     df = pd.read_csv(file_path)
     
     # Simple table representation

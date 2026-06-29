@@ -1,29 +1,32 @@
-import sys
 from pathlib import Path
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import os
 from loguru import logger
-
-BASE_DIR = Path(__file__).resolve().parent
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
 
 from celery_app import app
 from services.case_pipeline import CasePipeline
 
-ROOT_DIR = BASE_DIR.parent
-DOCUMENT_TYPES_PATH = ROOT_DIR / "docs" / "documenttypes.md"
+BASE_DIR = Path(__file__).resolve().parent
+DOCUMENT_TYPES_PATH = BASE_DIR.parent / "docs" / "documenttypes.md"
+DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=postgres host=localhost port=5432 password=postgres")
 
-import os
-DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=adityajadhav host=localhost port=5432")
 
-pipeline = CasePipeline(BASE_DIR, DB_DSN, DOCUMENT_TYPES_PATH)
+def get_pipeline():
+    return CasePipeline(BASE_DIR, DB_DSN, DOCUMENT_TYPES_PATH)
+
 
 @app.task(bind=True, max_retries=3, default_retry_delay=60)
 def process_case_task(self, case_id: str):
     """
     Celery task to run the case pipeline in the background.
     """
+    # Update status to processing
+    from db.connection import get_db_connection
+    with get_db_connection() as conn:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute("UPDATE cases SET status = %s WHERE id = %s", ("processing", case_id))
+    
+    pipeline = get_pipeline()
     try:
         logger.info(f"Starting pipeline for case {case_id}")
         result = pipeline.process_case(case_id)

@@ -43,3 +43,7 @@ export async function uploadCase(formData) {
     body: formData,
   })
 }
+
+export async function fetchCaseReport(caseId) {
+  return requestJson(`/cases/${caseId}/report`)
+}

@@ -7,14 +7,14 @@ Welcome to **Credexa**, a comprehensive desktop application for detecting tamper
 How can a bank automatically detect tampering or changes made across land records, legal documents, and financial statements in real time? Credexa solves this by offering a multi-layered pipeline that ingests documents, categorizes them, extracts forensic metadata, applies visual and logical validation, and surfaces anomalies to the underwriter with an LLM-powered explainability engine.
 
 ### Core Pipeline
-1. **Ingestion**: OCR & Text/Metadata Extraction (pdfplumber, Tesseract, PaddleOCR)
-2. **Document Routing**: Categorizes documents into Financial, Legal, or Land & Identity using LayoutLMv3.
+1. **Ingestion**: OCR & Text/Metadata Extraction (pdfplumber, RapidOCR, PaddleOCR)
+2. **Document Routing**: Categorizes documents into Financial, Legal, or Land & Identity using keyword-based classification with LayoutLMv3 as an optional signal.
 3. **Forensic Analysis**:
-   - **File Forensics**: Inspects PDF layers, object structure, and edit history.
+   - **File Forensics**: Inspects PDF layers, object structure, fonts, and edit history.
    - **Visual Forensics**: Performs Error Level Analysis (ELA), DCT block analysis, and PRNU noise fingerprinting.
    - **Logical/Math Validation**: Cross-checks financial equations (e.g., Bank balance reconciliation, Assets = Liabilities + Equity).
 4. **Cross-Document Consistency**: Uses NER and fuzzy matching to ensure details (Names, PAN, DOB) match across different submitted documents.
-5. **ML Anomaly Engine**: Employs Isolation Forest and Pattern Detectors to flag outliers.
+5. **ML Anomaly Engine**: Employs Isolation Forest, ECOD, Autoencoder, and Pattern Detectors to flag outliers.
 6. **Score Aggregation & Explainability**: Calculates a definitive risk score, and uses a local LLM (e.g., Qwen) to generate a natural-language explanation of why a document was flagged.
 
 ### Application Types Supported
@@ -182,8 +182,8 @@ Credexa/
 │   ├── package.json
 ├── backend/                # FastAPI backend + ML pipeline + Celery
 │   ├── api/                # REST API endpoints
-│   ├── db/                 # PostgreSQL schema setup
-│   ├── services/           # Analysis pipeline, document router
+│   ├── db/                 # SQLite / PostgreSQL dual-backend (connection.py)
+│   ├── services/           # Analysis pipeline, document router (QuickScanPipeline available)
 │   ├── ingestion/          # LayoutLMv3, PyMuPDF extractors
 │   ├── celery_app.py       # Celery worker & Redis configuration
 │   ├── tasks.py            # Async background tasks

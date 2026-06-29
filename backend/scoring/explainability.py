@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.request
 from typing import Any, Dict, List, Sequence
 
@@ -21,6 +22,9 @@ def generate_explanation(
     case_id: str = "",
 ) -> str:
     """Call Ollama to produce a 2-3 sentence underwriter-facing explanation."""
+
+    # Sanitize case_id to prevent prompt injection
+    safe_case_id = re.sub(r"[^A-Z0-9-]", "", case_id)[:20] if case_id else ""
 
     if not flags:
         return "No material fraud indicators were detected across any submitted document."
@@ -37,7 +41,7 @@ def generate_explanation(
 
     prompt = f"""You are a financial fraud analyst at an Indian bank.
 
-Given the following anomaly flags detected during automated document verification for loan application case {case_id}, write a 2-3 sentence explanation for a bank underwriter.
+Given the following anomaly flags detected during automated document verification for loan application case {safe_case_id}, write a 2-3 sentence explanation for a bank underwriter.
 
 Risk Score: {risk_score}/100 (Status: {status})
 

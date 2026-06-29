@@ -1,4 +1,4 @@
-import { Search, Plus, FileSearch, TrendingUp, AlertTriangle, Shield } from 'lucide-react'
+import { Search, Plus, FileSearch, TrendingUp, AlertTriangle, Shield, RefreshCw } from 'lucide-react'
 import { useState, useMemo } from 'react'
 
 function SkeletonRow() {
@@ -9,6 +9,15 @@ function SkeletonRow() {
       <div className="w-[120px] h-3 bg-raised rounded" />
       <div className="w-[80px] h-3 bg-raised rounded" />
       <div className="w-[60px] h-3 bg-raised rounded ml-auto" />
+    </div>
+  )
+}
+
+function SkeletonMetric() {
+  return (
+    <div className="bg-sheet border border-border p-5 rounded-lg animate-skeleton">
+      <div className="h-3 w-20 bg-raised rounded mb-3" />
+      <div className="h-8 w-16 bg-raised rounded" />
     </div>
   )
 }
@@ -30,7 +39,7 @@ function MetricCard({ label, value, icon: Icon, accent, delay }) {
   )
 }
 
-export default function Dashboard({ cases, loading, onSelectCase, onNewCase }) {
+export default function Dashboard({ cases, loading, error, onSelectCase, onNewCase, onRetry }) {
   const [searchQuery, setSearchQuery] = useState('')
 
   const pending = cases.filter(c => c.status === 'review' || c.status === 'pending' || c.status === 'processing').length
@@ -79,34 +88,21 @@ export default function Dashboard({ cases, loading, onSelectCase, onNewCase }) {
       <div className="p-4 sm:p-6 overflow-y-auto flex-1">
         {/* Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <MetricCard
-            label="TOTAL CASES"
-            value={cases.length}
-            icon={FileSearch}
-            accent="bg-indigo-surface text-indigo"
-            delay={0}
-          />
-          <MetricCard
-            label="PENDING REVIEW"
-            value={pending}
-            icon={TrendingUp}
-            accent="bg-caution-surface text-caution"
-            delay={60}
-          />
-          <MetricCard
-            label="ANOMALIES DETECTED"
-            value={anomalies}
-            icon={AlertTriangle}
-            accent="bg-alarm-surface text-alarm"
-            delay={120}
-          />
-          <MetricCard
-            label="CLEARED"
-            value={cleared}
-            icon={Shield}
-            accent="bg-clear-surface text-clear"
-            delay={180}
-          />
+          {loading && cases.length === 0 ? (
+            <>
+              <SkeletonMetric />
+              <SkeletonMetric />
+              <SkeletonMetric />
+              <SkeletonMetric />
+            </>
+          ) : (
+            <>
+              <MetricCard label="TOTAL CASES" value={cases.length} icon={FileSearch} accent="bg-indigo-surface text-indigo" delay={0} />
+              <MetricCard label="PENDING REVIEW" value={pending} icon={TrendingUp} accent="bg-caution-surface text-caution" delay={60} />
+              <MetricCard label="ANOMALIES DETECTED" value={anomalies} icon={AlertTriangle} accent="bg-alarm-surface text-alarm" delay={120} />
+              <MetricCard label="CLEARED" value={cleared} icon={Shield} accent="bg-clear-surface text-clear" delay={180} />
+            </>
+          )}
         </div>
 
         {/* Table */}
@@ -122,7 +118,18 @@ export default function Dashboard({ cases, loading, onSelectCase, onNewCase }) {
 
           {/* Table body */}
           <div className="divide-y divide-border">
-            {loading ? (
+            {error ? (
+              <div className="p-12 flex flex-col items-center justify-center text-center animate-fade-in">
+                <div className="w-16 h-16 rounded-2xl bg-alarm-surface border border-alarm-border flex items-center justify-center mb-4">
+                  <AlertTriangle size={28} className="text-alarm" />
+                </div>
+                <div className="text-heading text-text-primary mb-2">Failed to load cases</div>
+                <div className="text-body text-text-muted mb-5 max-w-[320px]">{error}</div>
+                <button onClick={onRetry} className="h-[36px] bg-indigo hover:bg-indigo-mid text-white px-5 rounded-md text-label flex items-center gap-2 transition-all">
+                  <RefreshCw size={14} /> Retry
+                </button>
+              </div>
+            ) : loading ? (
               <>
                 <SkeletonRow />
                 <SkeletonRow />

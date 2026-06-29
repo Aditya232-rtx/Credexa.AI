@@ -29,5 +29,10 @@ test_docs/
 .env
 .env.local
 backend/uploads/
+data/
+models/trained/
+*.db
 *.pt
 *.onnx
+*.pth
+*.pkl
