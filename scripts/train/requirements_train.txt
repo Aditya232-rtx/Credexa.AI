@@ -1,0 +1,16 @@
+# Training dependencies for Credexa AI Visual Forensics
+# Install with: pip install -r scripts/train/requirements_train.txt
+
+# PyTorch with CUDA support (RTX 4090)
+# Install PyTorch separately first:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
+# Training utilities
+tqdm>=4.65.0
+numpy>=1.24.0
+Pillow>=9.5.0
+
+# Evaluation & plotting (optional but recommended)
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0

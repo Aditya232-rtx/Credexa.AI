@@ -1,5 +1,7 @@
 # Python
 .venv/
+venv/
+dataset/
 __pycache__/
 *.pyc
 *.pyo
