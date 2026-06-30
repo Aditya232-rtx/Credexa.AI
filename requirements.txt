@@ -19,7 +19,7 @@ loguru
 rapidocr_onnxruntime
 sentence-transformers
 requests
-transformers
+transformers>=5.0.0
 datasets
 torch
 torchvision
@@ -31,3 +31,25 @@ slowapi
 sentry-sdk
 prometheus-client
 prometheus-fastapi-instrumentator
+# Memory management
+psutil>=6.0.0
+# Indian PII extraction
+gliner>=2.0.0
+# Bombek1 AI image detector (SigLIP2 + DINOv2 ensemble)
+timm>=0.9.0
+peft>=0.7.0
+# Phonetic transliteration for Indic name matching
+text-unidecode>=1.3
+# Indian ID classification via YOLO11 (logasanjeev/indian-id-validator)
+ultralytics>=8.0.0
+# PaddleOCR-VL via transformers for Devanagari/Indic OCR (optional — auto-fallback to RapidOCR if not installed)
+# Qwen2.5-VL-7B VLM service for document classification, KV extraction, explainability
+qwen-vl-utils>=0.0.7
+# VLM-based QA for KV extraction and fraud reasoning
+pillow-heif>=0.21.0
+# OpenCLIP for zero-shot anomaly detection (AnomalyCLIP alternative)
+open-clip-torch>=2.29.0
+# AIDE AI-generated image detector (hybrid SRM/DCT/CLIP)
+huggingface-hub>=0.27.0
+# ManTraNet forgery detection (3.9M params)
+pytorch-lightning>=2.0.0

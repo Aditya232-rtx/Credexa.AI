@@ -28,6 +28,17 @@ test_docs/
 # Environment
 .env
 .env.local
+
+# Local ML model weights (too large for repo, downloaded on demand)
+models/qwen2.5-vl-7b-4bit/
+models/aide/
+models/paddleocr-vl/
+models/trufor/
+models/mantranet/
+models/trained/bombek1_ai_detector/
+models/trained/efficientnet_b4_tamper/
+models/trained/indian_id_classifier/
+
 backend/uploads/
 data/
 models/trained/

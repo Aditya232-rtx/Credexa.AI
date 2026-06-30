@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+import base64
+import json
+import os
+import tempfile
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import requests
+from dotenv import load_dotenv
+from loguru import logger
+
+_LOADED_ENV = False
+
+
+def _ensure_env():
+    global _LOADED_ENV
+    if not _LOADED_ENV:
+        load_dotenv()
+        _LOADED_ENV = True
+
+
+def check_sightengine_ai(image_path: str) -> List[Dict[str, Any]]:
+    _ensure_env()
+    api_user = os.getenv("Sightengine_api_user")
+    api_secret = os.getenv("sightengine_api_key")
+    if not api_user or not api_secret:
+        logger.warning("Sightengine credentials not found — AI Detection falls back to local models")
+        return []
+
+    try:
+        logger.info(f"Sightengine: calling API for {Path(image_path).name}")
+        with open(image_path, "rb") as f:
+            resp = requests.post(
+                "https://api.sightengine.com/1.0/check.json",
+                files={"media": f},
+                data={"models": "genai", "api_user": api_user, "api_secret": api_secret},
+                timeout=30,
+            )
+        result = resp.json()
+        if result.get("status") != "success":
+            logger.warning(f"Sightengine API error: {result}")
+            return []
+
+        ai_score = result.get("type", {}).get("ai_generated", 0)
+        generators = result.get("type", {}).get("ai_generators", {})
+        top_generator = max(generators, key=generators.get) if generators else "unknown"
+        logger.info(f"Sightengine result: ai_generated={ai_score:.4f}, generator={top_generator}")
+
+        if ai_score > 0.5:
+            return [{
+                "layer": "AI Detection",
+                "finding": f"Sightengine detected AI-generated image ({top_generator}: {ai_score:.2%})",
+                "severity": "high" if ai_score > 0.75 else "medium",
+                "score": int(ai_score * 100),
+            }]
+        logger.info(f"Sightengine: below threshold (0.5), no flag raised")
+        return []
+    except Exception as e:
+        logger.warning(f"Sightengine request failed: {e} — AI Detection falls back to local models")
+        return []
+
+
+def check_veryfi_tampering(image_path: str) -> List[Dict[str, Any]]:
+    _ensure_env()
+    client_id = os.getenv("veryfi_client_id")
+    api_key = os.getenv("veryfi_api_key")
+    if not client_id or not api_key:
+        logger.warning("Veryfi credentials not found — Adobe/Tampering falls back to local models")
+        return []
+
+    try:
+        logger.info(f"Veryfi: calling API for {Path(image_path).name}")
+        with open(image_path, "rb") as f:
+            file_data = base64.b64encode(f.read()).decode()
+
+        resp = requests.post(
+            "https://api.veryfi.com/api/v8/partner/documents",
+            headers={
+                "Client-Id": client_id,
+                "Authorization": f"apikey {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "file_data": file_data,
+                "file_name": Path(image_path).name,
+                "boost_mode": False,
+            },
+            timeout=60,
+        )
+        result = resp.json()
+        fraud = result.get("meta", {}).get("fraud", {})
+        fraud_score = fraud.get("score", 0)
+        fraud_types = fraud.get("types", [])
+        fraud_color = fraud.get("color", "green")
+        logger.info(f"Veryfi result: fraud_color={fraud_color}, score={fraud_score}, types={fraud_types}")
+
+        flags: List[Dict[str, Any]] = []
+
+        if fraud_color == "red" or fraud_score > 0.75:
+            if "digital tampering" in fraud_types:
+                tampered_fields = fraud.get("digital_tampering_fields", [])
+                flags.append({
+                    "layer": "Adobe Detection",
+                    "finding": f"Veryfi detected digital tampering in fields: {', '.join(tampered_fields[:5])}" if tampered_fields else "Veryfi detected digital tampering (image editing software used)",
+                    "severity": "high",
+                    "score": int(fraud_score * 100),
+                })
+            if "generated document" in fraud_types or "ai generated" in fraud_types:
+                flags.append({
+                    "layer": "AI Detection",
+                    "finding": "Veryfi detected AI-generated or synthetic document",
+                    "severity": "high" if fraud_score > 0.8 else "medium",
+                    "score": int(fraud_score * 100),
+                })
+            if "fraudulent pdf" in fraud_types:
+                flags.append({
+                    "layer": "Adobe Detection",
+                    "finding": "Veryfi detected fraudulent PDF (created with editing software)",
+                    "severity": "high",
+                    "score": int(fraud_score * 100),
+                })
+            if "screenshot" in fraud_types:
+                flags.append({
+                    "layer": "Adobe Detection",
+                    "finding": "Veryfi detected document is a screenshot (not original)",
+                    "severity": "medium",
+                    "score": int(fraud_score * 100),
+                })
+            if "LCD photo" in fraud_types:
+                flags.append({
+                    "layer": "Adobe Detection",
+                    "finding": "Veryfi detected document is a photo of a screen (LCD)",
+                    "severity": "medium",
+                    "score": int(fraud_score * 100),
+                })
+            if "handwritten characters" in fraud_types:
+                flags.append({
+                    "layer": "Adobe Detection",
+                    "finding": "Veryfi detected handwritten characters or alterations",
+                    "severity": "medium",
+                    "score": int(fraud_score * 100),
+                })
+
+        if not flags and fraud_color == "yellow" and fraud_score > 0.5:
+            flags.append({
+                "layer": "Adobe Detection",
+                "finding": f"Veryfi flagged suspicious document ({', '.join(fraud_types[:3])})",
+                "severity": "medium",
+                "score": int(fraud_score * 100),
+            })
+
+        return flags
+    except Exception as e:
+        logger.warning(f"Veryfi request failed: {e}")
+        return []

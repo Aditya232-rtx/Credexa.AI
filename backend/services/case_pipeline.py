@@ -8,18 +8,19 @@ from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
 from anomaly.main import detect_anomalies
+from consistency.applicant_check import check_applicant_consistency
 from consistency.cross_doc import cross_check_documents, extract_entities
 from forensics.file_forensics import inspect_office_file, inspect_pdf, inspect_pdf_fonts
 from forensics.math_validator import validate_bank_statement_xlsx, validate_financials
-from forensics.prnu_check import analyze_prnu
-from forensics.visual_forensics import run_ela, run_dct_ghost
+from forensics.visual_forensics import analyze_forgery, run_dct_ghost
+from loguru import logger
 from ingestion.loader import read_document
 from router.classifier import DocumentRouter
 from scoring.main import score_case
 from utils.encryption import decrypt_data
 from db.connection import get_db_connection
 
-LAYER_TIMEOUT = int(os.environ.get("LAYER_TIMEOUT", "120"))  # seconds per document
+LAYER_TIMEOUT = int(os.environ.get("LAYER_TIMEOUT", "600"))  # seconds per document (TruFor alone can take ~390s)
 
 
 class CasePipeline:
@@ -83,6 +84,7 @@ class CasePipeline:
             payload = read_document(file_path)
             payload["document_id"] = document["id"]
             payload["file_size"] = int(document["file_size"] or 0)
+            payload.setdefault("metadata", {})["file_name"] = document.get("file_name", "")
 
             category = self.router.classify_document(payload)
             text = payload.get("text", "") or ""
@@ -102,9 +104,8 @@ class CasePipeline:
                 for page in pages:
                     image_path = page.get("image_path")
                     if image_path and os.path.exists(image_path):
-                        flags.extend(run_ela(str(image_path)))
+                        flags.extend(analyze_forgery(str(image_path)))
                         flags.extend(run_dct_ghost(str(image_path)))
-                        flags.extend(analyze_prnu(str(image_path)))
                         try:
                             os.remove(image_path)
                         except Exception:
@@ -195,6 +196,12 @@ class CasePipeline:
                         continue
                     doc_results = doc_result
                     document_results.append(doc_results["document_result"])
+
+                    doc_category = doc_results["document_result"].get("category", "Unknown")
+                    cur.execute(
+                        "UPDATE documents SET doc_category = %s, status = %s WHERE id = %s",
+                        (doc_category, "analyzed", document["id"]),
+                    )
                     doc_entities.append(doc_results["doc_entity"])
                     for flag in doc_results["flags"]:
                         self._insert_flag(cur, case_id, document["id"], flag)
@@ -204,6 +211,11 @@ class CasePipeline:
                 for flag in cross_doc_flags:
                     self._insert_flag(cur, case_id, None, flag)
                 all_flags.extend(cross_doc_flags)
+
+                applicant_flags = check_applicant_consistency(case, doc_entities)
+                for flag in applicant_flags:
+                    self._insert_flag(cur, case_id, None, flag)
+                all_flags.extend(applicant_flags)
 
                 anomaly_result = detect_anomalies(document_results)
                 for flag in anomaly_result.flags:

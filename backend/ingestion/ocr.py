@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import re
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -7,7 +10,6 @@ import fitz
 import pdfplumber
 import numpy as np
 from PIL import Image
-import tempfile
 
 from loguru import logger
 
@@ -17,81 +19,57 @@ try:
 except ImportError:
     ocr_engine = None
 
-try:
-    import torch
-    from transformers import LayoutLMv3Processor, LayoutLMv3ForTokenClassification
-    from utils.device import get_device, set_quantized_engine
-    LAYOUTLM_AVAILABLE = True
-except ImportError:
-    LAYOUTLM_AVAILABLE = False
 
-_processor = None
-_model = None
+def _has_devanagari(text: str) -> bool:
+    devanagari_range = range(0x0900, 0x0980)
+    return any(ord(c) in devanagari_range for c in text)
 
-def _get_layoutlmv3():
-    global _processor, _model
-    if _model is None and LAYOUTLM_AVAILABLE:
-        import os
-        set_quantized_engine()
-        _processor = LayoutLMv3Processor.from_pretrained("nielsr/layoutlmv3-finetuned-funsd", apply_ocr=False)
-        device = get_device()
-        quantized_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "layoutlmv3_quantized.pt"))
-        if os.path.exists(quantized_path):
-            _model = torch.load(quantized_path, map_location=device, weights_only=True)
-        else:
-            _model = LayoutLMv3ForTokenClassification.from_pretrained("nielsr/layoutlmv3-finetuned-funsd")
-        _model.to(device)
-        _model.eval()
-    return _processor, _model
 
-def _apply_layoutlmv3(image: Image.Image, words: List[str], boxes: List[List[int]]) -> List[str]:
-    processor, model = _get_layoutlmv3()
-    if model is None or not words:
-        return ["O"] * len(words)
-        
-    # LayoutLMv3 requires boxes to be in 0-1000 format
-    width, height = image.size
-    normalized_boxes = []
-    for box in boxes:
-        normalized_boxes.append([
-            max(0, min(1000, int(1000 * (box[0] / width)))),
-            max(0, min(1000, int(1000 * (box[1] / height)))),
-            max(0, min(1000, int(1000 * (box[2] / width)))),
-            max(0, min(1000, int(1000 * (box[3] / height)))),
-        ])
-    
-    # Truncate to 512 tokens to avoid out of memory / tensor shape errors
+def _run_ocr(image: Image.Image) -> tuple[List[str], List[List[int]]]:
+    words: List[str] = []
+    boxes: List[List[int]] = []
+    if ocr_engine is None:
+        return words, boxes
+
+    img_array = np.array(image)
+    result, _ = ocr_engine(img_array)
+    if result:
+        for line in result:
+            box, text, score = line
+            left = int(min([pt[0] for pt in box]))
+            top = int(min([pt[1] for pt in box]))
+            right = int(max([pt[0] for pt in box]))
+            bottom = int(max([pt[1] for pt in box]))
+            words.append(text)
+            boxes.append([left, top, right, bottom])
+    return words, boxes
+
+
+def _run_sarvam_ocr(image_path: str) -> tuple[List[str], List[List[int]]]:
     try:
-        encoding = processor(image, words, boxes=normalized_boxes, return_tensors="pt", truncation=True, max_length=512)
-        with torch.no_grad():
-            outputs = model(**encoding)
-        
-        predictions = outputs.logits.argmax(-1).squeeze()
-        if predictions.dim() == 0:
-            predictions = predictions.unsqueeze(0)
-        predictions = predictions.tolist()
-        
-        labels = []
-        word_ids = encoding.word_ids(0)
-        previous_word_idx = None
-        
-        for idx, word_idx in enumerate(word_ids):
-            if word_idx is None:
-                continue
-            if word_idx != previous_word_idx:
-                # Map the first subtoken's prediction to the entire word
-                label = model.config.id2label[predictions[idx]] if isinstance(predictions, list) else model.config.id2label[predictions]
-                labels.append(label)
-            previous_word_idx = word_idx
-            
-        # If words were truncated, pad the rest with "O"
-        while len(labels) < len(words):
-            labels.append("O")
-            
-        return labels[:len(words)]
+        from services.sarvam_service import sarvam_extract_text
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
+            clean_path = tf.name
+        try:
+            Image.open(image_path).convert("RGB").save(clean_path, "JPEG", quality=95)
+            text = sarvam_extract_text(clean_path)
+        finally:
+            if os.path.exists(clean_path):
+                os.remove(clean_path)
+        if text:
+            # Strip base64-embedded images from markdown output
+            text = re.sub(r"!\[.*?\]\(data:image/[^;]+;base64,[^)]+\)", "", text)
+            # Collapse whitespace and split into lines/words
+            lines = [l.strip() for l in text.replace("\r\n", "\n").split("\n") if l.strip()]
+            words = []
+            for line in lines:
+                words.extend(w.strip() for w in line.split() if w.strip())
+            boxes = [[0, 0, 0, 0]] * len(words)
+            return words, boxes
     except Exception as e:
-        logger.warning(f"LayoutLMv3 Error: {e}")
-        return ["O"] * len(words)
+        logger.debug(f"Sarvam OCR unavailable: {e}")
+    return [], []
+
 
 def _normalize_words(words: List[Dict[str, Any]], image: Image.Image, page_width: float, page_height: float) -> List[Dict[str, Any]]:
     scale_x = image.width / page_width
@@ -106,26 +84,6 @@ def _normalize_words(words: List[Dict[str, Any]], image: Image.Image, page_width
         )
     return normalized_words
 
-def _run_paddle_ocr(image: Image.Image):
-    words = []
-    boxes = []
-    if ocr_engine is None:
-        return words, boxes
-        
-    img_array = np.array(image)
-    # rapidocr can handle RGB numpy arrays
-    result, _ = ocr_engine(img_array)
-    if result:
-        for line in result:
-            box, text, score = line
-            left = int(min([pt[0] for pt in box]))
-            top = int(min([pt[1] for pt in box]))
-            right = int(max([pt[0] for pt in box]))
-            bottom = int(max([pt[1] for pt in box]))
-            words.append(text)
-            boxes.append([left, top, right, bottom])
-    return words, boxes
-
 
 def extract_text_and_boxes_from_pdf(pdf_path: str | Path) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
@@ -137,7 +95,9 @@ def extract_text_and_boxes_from_pdf(pdf_path: str | Path) -> List[Dict[str, Any]
             words = page.extract_words() or []
 
             if not words:
-                words_list, boxes_list = _run_paddle_ocr(image)
+                words_list, boxes_list = _run_sarvam_ocr(str(pdf_path))
+                if not words_list:
+                    words_list, boxes_list = _run_ocr(image)
                 words = []
                 for idx in range(len(words_list)):
                     words.append({
@@ -149,38 +109,33 @@ def extract_text_and_boxes_from_pdf(pdf_path: str | Path) -> List[Dict[str, Any]
 
             extracted_words = [word["text"] for word in words]
             extracted_boxes = [word["box"] for word in words]
-            
-            # Apply LayoutLMv3 Semantic Labelling
-            labels = _apply_layoutlmv3(image, extracted_words, extracted_boxes)
-            
-            # Save image to temp file to avoid OOM
+
             temp_img_path = tempfile.mktemp(suffix=".jpg")
             image.save(temp_img_path, format="JPEG")
 
             results.append({
-                "page_num": index + 1, 
-                "image_path": temp_img_path, 
-                "words": extracted_words, 
+                "page_num": index + 1,
+                "image_path": temp_img_path,
+                "words": extracted_words,
                 "boxes": extracted_boxes,
-                "labels": labels
+                "labels": ["O"] * len(extracted_words),
             })
     return results
 
 
 def extract_from_image(image_path: str | Path) -> List[Dict[str, Any]]:
     image = Image.open(str(image_path)).convert("RGB")
-    words, boxes = _run_paddle_ocr(image)
-        
-    # Apply LayoutLMv3 Semantic Labelling
-    labels = _apply_layoutlmv3(image, words, boxes)
-    
+    words, boxes = _run_sarvam_ocr(str(image_path))
+    if not words:
+        words, boxes = _run_ocr(image)
+
     temp_img_path = tempfile.mktemp(suffix=".jpg")
     image.save(temp_img_path, format="JPEG")
-    
+
     return [{
-        "page_num": 1, 
-        "image_path": temp_img_path, 
-        "words": words, 
+        "page_num": 1,
+        "image_path": temp_img_path,
+        "words": words,
         "boxes": boxes,
-        "labels": labels
+        "labels": ["O"] * len(words),
     }]

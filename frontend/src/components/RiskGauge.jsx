@@ -2,7 +2,7 @@ export default function RiskGauge({ score, size = 100 }) {
   const r = (size - 20) / 2
   const circ = 2 * Math.PI * r
   const offset = circ * (1 - Math.min(100, Math.max(0, score)) / 100)
-  const color = score < 20 ? '#16A34A' : score < 60 ? '#D97706' : '#DC2626'
+  const color = score < 45 ? '#16A34A' : score < 80 ? '#D97706' : '#DC2626'
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>

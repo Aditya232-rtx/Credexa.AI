@@ -43,8 +43,9 @@ export default function Dashboard({ cases, loading, error, onSelectCase, onNewCa
   const [searchQuery, setSearchQuery] = useState('')
 
   const pending = cases.filter(c => c.status === 'review' || c.status === 'pending' || c.status === 'processing').length
-  const anomalies = cases.filter(c => c.status === 'flagged' || c.risk_score >= 60).length
-  const cleared = cases.filter(c => c.status !== 'flagged' && c.risk_score < 60).length
+  const anomalies = cases.filter(c => c.status === 'flagged' || c.risk_score >= 80).length
+  const review = cases.filter(c => c.status === 'review' || (c.risk_score >= 45 && c.risk_score < 80)).length
+  const cleared = cases.filter(c => c.status !== 'flagged' && c.status !== 'review' && c.risk_score < 45).length
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return cases
@@ -98,7 +99,7 @@ export default function Dashboard({ cases, loading, error, onSelectCase, onNewCa
           ) : (
             <>
               <MetricCard label="TOTAL CASES" value={cases.length} icon={FileSearch} accent="bg-indigo-surface text-indigo" delay={0} />
-              <MetricCard label="PENDING REVIEW" value={pending} icon={TrendingUp} accent="bg-caution-surface text-caution" delay={60} />
+              <MetricCard label="PENDING / REVIEW" value={pending + review} icon={TrendingUp} accent="bg-caution-surface text-caution" delay={60} />
               <MetricCard label="ANOMALIES DETECTED" value={anomalies} icon={AlertTriangle} accent="bg-alarm-surface text-alarm" delay={120} />
               <MetricCard label="CLEARED" value={cleared} icon={Shield} accent="bg-clear-surface text-clear" delay={180} />
             </>
@@ -160,7 +161,8 @@ export default function Dashboard({ cases, loading, error, onSelectCase, onNewCa
               </div>
             ) : (
               filtered.map((c, idx) => {
-                const isFlagged = c.status === 'flagged' || c.risk_score >= 60
+                const isFlagged = c.status === 'flagged' || c.risk_score >= 80
+                const isReview = c.status === 'review' || (c.risk_score >= 45 && c.risk_score < 80)
                 const isProcessing = c.status === 'processing'
                 return (
                   <button
@@ -181,6 +183,10 @@ export default function Dashboard({ cases, loading, error, onSelectCase, onNewCa
                       ) : isFlagged ? (
                         <span className="inline-flex items-center px-[8px] py-[2px] rounded-[4px] bg-alarm-surface text-alarm text-caption border border-alarm-border font-semibold">
                           FLAGGED
+                        </span>
+                      ) : isReview ? (
+                        <span className="inline-flex items-center px-[8px] py-[2px] rounded-[4px] bg-caution-surface text-caution text-caption border border-caution-border font-semibold">
+                          REVIEW
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-[8px] py-[2px] rounded-[4px] bg-clear-surface text-clear text-caption border border-clear-border font-semibold">

@@ -48,7 +48,7 @@ export default function CaseDetail({ caseData, onBack, onAnalyze, loading, error
   if (!caseData) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-muted animate-fade-in">
       <div className="w-12 h-12 rounded-xl bg-indigo-surface border border-indigo-border flex items-center justify-center">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
       </div>
       <div className="text-heading text-text-primary">No case selected</div>
       <div className="text-body text-text-muted">Select a case from the dashboard to view details.</div>
@@ -61,7 +61,7 @@ export default function CaseDetail({ caseData, onBack, onAnalyze, loading, error
   const flags = caseData.flags || []
   const auditLog = caseData.audit_log || []
 
-  const isFlagged = c.risk_score >= 60 || c.status === 'flagged'
+  const isFlagged = c.risk_score >= 80 || c.status === 'flagged'
   const isProcessing = c.status === 'processing'
 
   return (
@@ -141,7 +141,7 @@ export default function CaseDetail({ caseData, onBack, onAnalyze, loading, error
                   docs.map((d, i) => {
                     const isPdf = d.file_name.toLowerCase().endsWith('.pdf')
                     const ext = isPdf ? 'PDF' : 'IMG'
-                    
+
                     let sizeStr = '0 B'
                     if (d.file_size) {
                       if (d.file_size < 1024) sizeStr = `${d.file_size} B`
@@ -160,7 +160,7 @@ export default function CaseDetail({ caseData, onBack, onAnalyze, loading, error
                     const docFlags = flags.filter(f => f.document_id === d.id || f.finding.includes(d.file_name))
                     const score = Math.min(100, docFlags.reduce((acc, f) => acc + (f.score || 20), 0))
                     const isProc = c.status === 'processing' || c.status === 'uploaded'
-                    
+
                     let dotColor = 'bg-[#16A34A]' // Green
                     if (isProc) dotColor = 'bg-indigo animate-pulse'
                     else if (score >= 60) dotColor = 'bg-[#DC2626]' // Red
@@ -222,7 +222,7 @@ export default function CaseDetail({ caseData, onBack, onAnalyze, loading, error
                 {flags.length === 0 ? (
                   <div className="p-8 sm:p-12 text-center animate-fade-in">
                     <div className="w-12 h-12 rounded-xl bg-clear-surface border border-clear-border flex items-center justify-center mx-auto mb-3">
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.5-9.5L9 13l-2.5-2.5" stroke="#16A34A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.5-9.5L9 13l-2.5-2.5" stroke="#16A34A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </div>
                     <div className="text-heading text-text-primary mb-1">No anomalies detected</div>
                     <div className="text-body text-text-muted">All documents passed forensic analysis layers.</div>
@@ -242,7 +242,7 @@ export default function CaseDetail({ caseData, onBack, onAnalyze, loading, error
               <div className="bg-sheet border border-border rounded-lg shadow-sm overflow-hidden animate-slide-up" style={{ animationDelay: '120ms' }}>
                 <div className="h-[40px] border-b border-border bg-paper flex items-center px-4 sm:px-5 gap-2 sm:gap-3 flex-wrap">
                   <div className="text-caption text-text-muted tracking-wide bg-raised border border-border px-2 py-[2px] rounded-[3px]">AI ANALYSIS</div>
-                  <div className="text-label text-text-secondary">Explainability Report — Qwen2.5 Local</div>
+                  <div className="text-label text-text-secondary">Explainability Report</div>
                 </div>
                 <div className="p-4 sm:p-6">
                   <p className="text-body text-text-primary leading-relaxed mb-4">

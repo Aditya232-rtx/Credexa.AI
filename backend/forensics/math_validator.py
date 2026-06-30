@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-import json
-import urllib.request
 import re
 from typing import Any, Dict, List, Sequence
 
@@ -108,32 +105,8 @@ def validate_itr_vs_26as(itr_text: str, form26as_text: str) -> List[Dict[str, An
 
 
 def extract_financials_llm(text: str) -> dict:
-    prompt = '''
-    Extract the following financial data from the text if available. Return ONLY a valid JSON object.
-    Keys: "opening_balance", "total_credits", "total_debits", "closing_balance", "revenue", "cogs", "gross_profit", "opex", "net_profit".
-    If a value is not found, set it to null. Ensure values are floats or null.
-    Text:
-    ''' + text[:3000]
-
-    data = {
-        "model": os.environ.get("OLLAMA_MODEL", "qwen3.5:4b"),
-        "prompt": prompt,
-        "format": "json",
-        "stream": False
-    }
-    try:
-        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-        req = urllib.request.Request(
-            f"{ollama_url}/api/generate", 
-            data=json.dumps(data).encode('utf-8'), 
-            headers={'Content-Type': 'application/json'}
-        )
-        with urllib.request.urlopen(req, timeout=15) as response:
-            result = json.loads(response.read())
-            return json.loads(result.get("response", "{}"))
-    except Exception as e:
-        logger.warning(f"Ollama LLM Error: {e}")
-        return {}
+    from services.vlm import extract_financials_vlm
+    return extract_financials_vlm(text)
 
 
 def validate_financials(text: str, tables: Sequence[Sequence[Any]], file_type: str) -> List[Dict[str, Any]]:

@@ -26,7 +26,8 @@ export default function Upload({ onSubmit, submitting, onCancel }) {
   }, [])
 
   function handleFiles(fileList) {
-    const arr = Array.from(fileList)
+    const arr = Array.from(fileList).filter(f => f.size > 0 && f.name && !f.name.startsWith('.'))
+    if (arr.length === 0) return
     setSelectedFiles(prev => {
       const existing = new Set(prev.map(f => f.name + f.size))
       const newFiles = arr.filter(f => !existing.has(f.name + f.size))
@@ -34,11 +35,11 @@ export default function Upload({ onSubmit, submitting, onCancel }) {
     })
   }
 
-  async function handleNativeFilePick(e) {
+  function handleNativeFilePick(e) {
     e?.preventDefault()
     if (window.credexa?.openFiles) {
-      const paths = await window.credexa.openFiles()
-      if (paths?.length) {
+      window.credexa.openFiles().then(async (paths) => {
+        if (!paths?.length) return
         const filePromises = paths.map(async p => {
           const fileData = await window.credexa.readFile(p)
           const byteChars = atob(fileData.data)
@@ -55,7 +56,11 @@ export default function Upload({ onSubmit, submitting, onCancel }) {
           const unique = newFiles.filter(f => !existing.has(f.name + f.size))
           return [...prev, ...unique]
         })
-      }
+      }).catch(err => {
+        console.error('File pick error:', err)
+      })
+    } else {
+      fileInputRef.current?.click()
     }
   }
 

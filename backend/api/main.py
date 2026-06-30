@@ -5,6 +5,7 @@ import os
 import mimetypes
 import re
 import secrets
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List
@@ -36,6 +37,7 @@ ROOT_DIR = BASE_DIR.parent
 SCHEMA_PATH = BASE_DIR / "db" / "schema.sql"
 UPLOAD_ROOT = BASE_DIR / "uploads"
 DOCUMENT_TYPES_PATH = ROOT_DIR / "docs" / "documenttypes.md"
+DB_DSN = os.environ.get("DB_DSN", "dbname=credexa user=postgres host=localhost port=5432 password=postgres")
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 if SENTRY_DSN:
@@ -241,7 +243,6 @@ async def upload_documents(
                 )
                 saved_files.append({"id": doc_id, "name": upload.filename})
 
-    process_case_task.delay(case_id)
     return {"case_id": case_id, "status": "pending", "files": saved_files}
 
 
@@ -302,8 +303,25 @@ def analyze_case(case_id: str) -> dict:
             cur.execute("SELECT 1 FROM cases WHERE id = %s", (case_id,))
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Case not found")
-    process_case_task.delay(case_id)
-    return {"status": "enqueued", "case_id": case_id}
+    try:
+        from services.case_pipeline import CasePipeline
+        pipeline = CasePipeline(BASE_DIR, DB_DSN, DOCUMENT_TYPES_PATH)
+        result = pipeline.process_case(case_id)
+        logger.info(f"Pipeline completed for case {case_id}: score={result.get('risk_score')}, status={result.get('status')}")
+        return {
+            "status": "completed",
+            "case_id": case_id,
+            "risk_score": result.get("risk_score"),
+            "result_status": result.get("status"),
+            "flags_count": len(result.get("flags", [])),
+        }
+    except Exception as e:
+        logger.error(f"Error processing case {case_id}: {e}\n{traceback.format_exc()}")
+        with get_db_connection() as conn:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute("UPDATE cases SET status = %s WHERE id = %s", ("failed", case_id))
+        return {"status": "failed", "case_id": case_id, "error": str(e)}
 
 class FeedbackIn(BaseModel):
     decision: str
@@ -367,8 +385,11 @@ def get_case_report(case_id: str) -> dict:
     case_dict["mobile_no"] = decrypt_string(case_dict.get("mobile_no", ""))
     case_dict["address"] = decrypt_string(case_dict.get("address", ""))
 
-    anomaly_score = case_dict.get("risk_score", 0) or 0
-    scoring_result = score_case(flags, float(anomaly_score), case_id=case_id)
+    scoring_result = {
+        "risk_score": case_dict.get("risk_score", 0) or 0,
+        "status": case_dict.get("status", "pending"),
+        "explanation": generate_explanation(flags, case_dict.get("risk_score", 0) or 0, case_dict.get("status", "pending"), case_id=case_id),
+    }
 
     doc_summaries = []
     for doc in documents:

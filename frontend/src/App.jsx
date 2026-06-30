@@ -129,9 +129,9 @@ function AppShell() {
       const fresh = await fetchCase(id)
       setSelectedCase(fresh)
       const score = fresh?.case?.risk_score || 0
-      if (score >= 60) {
+      if (score >= 80) {
         toast.error(`Risk score: ${score}/100 — anomalies detected.`, 'High Risk')
-      } else if (score >= 20) {
+      } else if (score >= 45) {
         toast.warning(`Risk score: ${score}/100 — some concerns found.`, 'Moderate Risk')
       } else {
         toast.success(`Risk score: ${score}/100 — documents appear clean.`, 'Low Risk')

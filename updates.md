@@ -1,6 +1,6 @@
 # Credexa.AI — Status Report (v1)
 
-## ✅ What's Done (47/47 Issues Resolved)
+## ✅ What's Done (Model Integrations Complete)
 
 ### Core Backend
 - FastAPI application with 12 REST endpoints (health, upload, cases, analyze, feedback, report)
@@ -48,6 +48,20 @@
 - `conftest.py` with backend PYTHONPATH setup
 - `test_imports_collectable.py` for CI import verification
 
+### New Model Integrations (v1.1)
+| Model | Category | Integration Point | Status |
+|-------|----------|------------------|--------|
+| `VK1402/AADHAAR_Extractor` (GLiNER2) | Indian PII extraction | `backend/ner/indian_pii.py` — Person Name, PAN, Aadhaar, IFSC, Bank Name via neural NER with regex fallback | ✅ |
+| `Bombek1/ai-image-detector-siglip-dinov2` | Deepfake/AI image detection | `backend/models/bombek1_detector.py` — SigLIP2 + DINOv2 ensemble covering DALL-E 3, Midjourney V6, Flux, SD XL, 25+ generators (0.9997 AUC) | ✅ |
+| Phonetic transliteration (`text-unidecode`) | Indic name matching | `backend/consistency/cross_doc.py` — `_phonetic_score()` for Devanagari/Indic script name normalization | ✅ |
+
+### Improved Pipeline Layers
+| Layer | Before | After |
+|-------|--------|-------|
+| Cross-Doc NER | spaCy only (misses Indian PII: PAN, Aadhaar, IFSC) | spaCy + GLiNER2 (VK1402/AADHAAR_Extractor) + regex patterns for Indian documents |
+| Visual Forensics | CNNDetection (ResNet-50, GAN-only, weights missing) | Bombek1 SigLIP2+DINOv2 ensemble (covers diffusion models, 0.9997 AUC, auto-downloaded from HF) |
+| Name Matching | Semantic (MiniLM) + fuzzy only | + Phonetic transliteration (`text-unidecode`) for Devanagari/Indic scripts |
+
 ### DevOps
 - Docker Compose (db + redis + ollama + backend + celery + frontend)
 - Dockerfile with system deps (tesseract, exiftool, poppler)
@@ -71,15 +85,20 @@
 2. Run `scripts/train/colab_train_visual_forensics.ipynb` on T4 GPU (~45-75 min)
 3. Download `efficientnet_b4_tamper.pth` into `models/trained/efficientnet_b4_tamper/`
 
+### Model Download (Automatic on First Run)
+4. `Bombek1/ai-image-detector-siglip-dinov2` checkpoint (2.11 GB) auto-downloads via `huggingface_hub` on first `run_bombek1_inference()` call to `models/trained/bombek1_ai_detector/pytorch_model.pt`
+5. `VK1402/AADHAAR_Extractor` (GLiNER2, ~0.2B params) auto-downloads via `GLiNER.from_pretrained()` on first `extract_with_gliner()` call
+
 ### Packaging (User Action Required)
-4. Configure `electron-builder` in `frontend/package.json`
-5. Package for macOS/Linux/Windows
+6. Configure `electron-builder` in `frontend/package.json`
+7. Package for macOS/Linux/Windows
 
 ### End-to-End Verification (User Action Required)
-6. Start backend with `DB_BACKEND=sqlite` (no PostgreSQL dependency)
-7. Start frontend (`npm run dev` or Electron)
-8. Upload sample documents and verify pipeline runs to completion
-9. Test with Docker Compose for PostgreSQL mode
+8. Install new deps: `pip install gliner timm peft text-unidecode`
+9. Start backend with `DB_BACKEND=sqlite` (no PostgreSQL dependency)
+10. Start frontend (`npm run dev` or Electron)
+11. Upload sample documents and verify pipeline runs to completion
+12. Test with Docker Compose for PostgreSQL mode
 
 ---
 
@@ -92,6 +111,16 @@
 | `check_services.py` | Standalone connectivity checker, not integrated | Low |
 | `scripts/train/*.py` | Training scripts contain `sys.path.insert` — should use installed package | Low |
 | `backend/mock_gov_apis/` | Mock APIs for testing — not production-ready | Low |
+| `backend/ner/` | New NER module — needs tests | Low |
+| `backend/models/bombek1_detector.py` | New AI detector module — needs tests | Low |
+
+### Model Integration Remaining
+| Model | Status | Priority |
+|-------|--------|----------|
+| EfficientNet-B4 tamper | Weights not trained — blocked on CASIA upload | Medium |
+| Chitrapathak-2 (Indic OCR) | Researched but not integrated (4B VLM, heavy — needs vLLM/quantization) | Low |
+| OpenBharatOCR (structured docs) | Researched but not integrated (pip-installable, needs YOLO weights) | Low |
+| `hiteshwadhwani/pii-model-indicv2` | Alternative IndicBERTv2 PII — not integrated (GLiNER chosen instead) | Low |
 
 ### Missing Features & Edge Cases
 | Feature | Details | Priority |
@@ -118,3 +147,4 @@
 | Docker Compose | Frontend rebuilds node_modules on container restart (named volume caches it) | Low |
 | CI pipeline | Runs pytest on push/PR to main/develop — needs model artifact caching | Low |
 | Sentry/error tracking | Configured via `SENTRY_DSN` env var — not active in dev | Low |
+| New deps | `gliner`, `timm`, `peft`, `text-unidecode` added to `requirements.txt` — need Dockerfile update | Low |

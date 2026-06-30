@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Sequence
 
@@ -17,6 +18,7 @@ except Exception:
     torch = None
     LayoutLMv3ForSequenceClassification = None
     LayoutLMv3Processor = None
+
 
 DEFAULT_TAXONOMY = {
     "Financial Statements & Tax Registries": [
@@ -40,6 +42,7 @@ DEFAULT_TAXONOMY = {
     ],
     "Legal & Identity Documents": [
         "aadhaar",
+        "adhaar",
         "pan",
         "passport",
         "driving license",
@@ -206,7 +209,7 @@ class DocumentRouter:
         filename = str((metadata or {}).get("file_name", "")).lower()
         if any(token in filename for token in ["bank", "statement", "form16", "26as", "itr", "pnl", "tax"]):
             scores["Financial Statements & Tax Registries"] += 1.25
-        if any(token in filename for token in ["aadhaar", "pan", "passport", "voter", "license", "poa", "affidavit"]):
+        if any(token in filename for token in ["aadhaar", "adhaar", "pan", "passport", "voter", "license", "poa", "affidavit"]):
             scores["Legal & Identity Documents"] += 1.25
         if any(token in filename for token in ["7_12", "712", "satbara", "property", "jamabandi", "khata", "sale deed", "encumbrance"]):
             scores["Land & Property Records"] += 1.25
@@ -236,9 +239,43 @@ class DocumentRouter:
             logger.debug(f"Layout signal failed: {e}")
             return {}
 
+    def _vlm_classify(self, payload: Mapping[str, Any]) -> str | None:
+        pages = payload.get("pages", []) or []
+        if not pages:
+            return None
+        text = self._collect_text(payload)
+        for page in pages:
+            image = page.get("image")
+            if image is None:
+                image_path = page.get("image_path")
+                if image_path and os.path.exists(image_path):
+                    from PIL import Image as PILImage
+                    image = PILImage.open(image_path).convert("RGB")
+            if image is None:
+                continue
+            try:
+                from services.vlm import classify_financial_doc
+                category = classify_financial_doc(image, text)
+                doc_label_map = {
+                    "bank_statement": "Financial Statements & Tax Registries",
+                    "form_26as": "Financial Statements & Tax Registries",
+                    "itr": "Financial Statements & Tax Registries",
+                    "salary_slip": "Financial Statements & Tax Registries",
+                    "balance_sheet": "Financial Statements & Tax Registries",
+                    "profit_loss": "Financial Statements & Tax Registries",
+                    "gst_return": "Financial Statements & Tax Registries",
+                }
+                label = doc_label_map.get(category)
+                if label:
+                    return label
+            except Exception:
+                continue
+        return None
+
     def classify_document(self, payload: Mapping[str, Any]) -> str:
         text = self._collect_text(payload)
         metadata = payload.get("metadata", {}) or {}
+
         keyword_scores = self._keyword_scores(text, metadata)
         layout_scores = self._layout_signal(payload)
         combined = {
@@ -246,4 +283,9 @@ class DocumentRouter:
             for category in self.taxonomy
         }
         best_category, best_score = max(combined.items(), key=lambda item: item[1])
-        return best_category if best_score > 0.25 else "Unknown"
+
+        if best_score > 0.25:
+            return best_category
+
+        vlm_label = self._vlm_classify(payload)
+        return vlm_label if vlm_label else "Unknown"

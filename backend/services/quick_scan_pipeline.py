@@ -8,7 +8,7 @@ from anomaly.main import detect_anomalies
 from consistency.cross_doc import cross_check_documents, extract_entities
 from forensics.file_forensics import inspect_office_file, inspect_pdf
 from forensics.math_validator import validate_bank_statement_xlsx, validate_financials
-from forensics.visual_forensics import run_ela
+from forensics.visual_forensics import analyze_forgery
 from ingestion.loader import read_document
 from router.classifier import DocumentRouter
 from scoring.main import score_case

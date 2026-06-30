@@ -3,7 +3,7 @@ from celery import Celery
 from loguru import logger
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-RESULT_BACKEND = os.environ.get("RESULT_BACKEND", f"{REDIS_URL}/1")
+RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "redis://localhost:6379/1")
 
 app = Celery(
     "credexa_worker",

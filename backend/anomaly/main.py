@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
 import pickle
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
+
+from loguru import logger
 
 from anomaly.pattern_detector import analyze_patterns
 
@@ -187,6 +190,31 @@ def detect_anomalies(documents: Sequence[Dict[str, Any]]) -> AnomalyResult:
         text = doc.get("text", "") or ""
         pattern_flags = analyze_patterns(text)
         all_flags.extend(pattern_flags)
+
+    # AnomalyCLIP zero-shot anomaly detection on page images
+    try:
+        from PIL import Image as PILImage
+        from models.anomaly_clip_wrapper import detect_anomalyclip
+        for doc in documents:
+            pages = doc.get("pages", []) or []
+            for page in pages:
+                image = page.get("image")
+                if image is None:
+                    image_path = page.get("image_path")
+                    if image_path and os.path.exists(image_path):
+                        image = PILImage.open(image_path).convert("RGB")
+                if image is not None:
+                    ac_result = detect_anomalyclip(image)
+                    if ac_result["score"] > 0.7:
+                        all_flags.append({
+                            "layer": "ML Anomaly",
+                            "finding": ac_result["finding"],
+                            "severity": ac_result["severity"],
+                            "score": int(ac_result["score"] * 100),
+                        })
+                        break
+    except Exception as e:
+        logger.debug(f"AnomalyCLIP skipped: {e}")
 
     if IsolationForest is None or np is None or len(vectors) < 3:
         total_flag_count = sum(len(document.get("flags", []) or []) for document in documents)
