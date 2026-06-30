@@ -102,7 +102,7 @@ def _name_match_score(applicant_name: str, doc_names: Sequence[str]) -> Dict[str
         return {"match": True, "severity": "low", "details": f"Name partially matches: '{applicant_name}' vs '{best_name}' (e.g., middle name present in one). This is common and not a risk."}
     if best > 0:
         return {"match": False, "severity": "medium", "details": f"Name differs significantly: '{applicant_name}' vs '{best_name}'."}
-    return {"match": False, "severity": "medium", "details": "Name could not be verified against documents."}
+    return {"match": False, "severity": "medium", "details": f"Name could not be matched: '{applicant_name}' does not match any name found in documents (e.g., '{doc_names[0]}')."}
 
 
 def check_applicant_consistency(

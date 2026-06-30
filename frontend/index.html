@@ -5,8 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Credexa AI</title>
     <meta name="description" content="Credexa AI document fraud intelligence platform" />
+    <link rel="icon" type="image/png" href="/src/assets/logo.png" />
+    <style>
+      #splash-screen {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: #F8F9FC;
+        transition: opacity 0.6s ease, visibility 0.6s ease;
+      }
+      #splash-screen.hidden {
+        opacity: 0; visibility: hidden; pointer-events: none;
+      }
+      #splash-logo {
+        width: 56px; height: 56px; object-fit: contain;
+        animation: splash-pulse 1.2s ease-in-out infinite;
+      }
+      #splash-loader {
+        margin-top: 24px; width: 120px; height: 3px;
+        background: #E5E7EB; border-radius: 4px; overflow: hidden;
+      }
+      #splash-loader-bar {
+        height: 100%; width: 0%;
+        background: #4F46E5; border-radius: 4px;
+        animation: splash-load 1.5s ease-in-out forwards;
+      }
+      @keyframes splash-pulse {
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.08); opacity: 1; }
+      }
+      @keyframes splash-load {
+        0% { width: 0%; }
+        60% { width: 65%; }
+        100% { width: 100%; }
+      }
+    </style>
   </head>
   <body class="bg-bg text-ink antialiased">
+    <div id="splash-screen">
+      <img id="splash-logo" src="/src/assets/logo.png" alt="Credexa" />
+      <div id="splash-loader"><div id="splash-loader-bar"></div></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

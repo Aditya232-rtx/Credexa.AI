@@ -1,4 +1,5 @@
 import { LayoutGrid, FileText, Upload, BarChart2, Settings } from 'lucide-react'
+import logoSrc from '../assets/logo.png'
 
 const navItems = [
   { id: 'dash', icon: LayoutGrid, label: 'Dashboard' },
@@ -11,11 +12,11 @@ export default function Sidebar({ activeView, onNavigate }) {
   return (
     <nav className="w-[54px] bg-sheet border-r border-border flex flex-col items-center py-3 shrink-0">
       {/* Logo */}
-      <div
-        className="w-[30px] h-[30px] rounded-[7px] flex items-center justify-center text-white font-bold text-[11px] tracking-tighter mb-[22px] shrink-0 bg-indigo shadow-[0_2px_8px_rgba(79,70,229,0.22)] hover:shadow-[0_4px_12px_rgba(79,70,229,0.35)] transition-shadow duration-200 cursor-default"
-      >
-        Cx
-      </div>
+      <img
+        src={logoSrc}
+        alt="Credexa"
+        className="w-[30px] h-[30px] object-contain mb-[22px] shrink-0 opacity-80 hover:opacity-100 transition-opacity duration-200 cursor-default"
+      />
 
       {/* Nav group */}
       <div className="flex flex-col gap-[1px] w-full px-[7px] flex-1">

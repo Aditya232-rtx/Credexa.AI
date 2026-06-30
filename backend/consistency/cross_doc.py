@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
 from utils.model_registry import registry
@@ -41,9 +42,13 @@ def _load_semantic_model_once():
     global _semantic_model
     if _semantic_model is not None:
         return _semantic_model
+    model_name = 'all-MiniLM-L6-v2'
+    model_cache = Path.home() / ".cache" / "huggingface" / "hub" / "models--sentence-transformers--all-MiniLM-L6-v2"
+    if not model_cache.exists():
+        return None
     try:
         from sentence_transformers import SentenceTransformer
-        _semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+        _semantic_model = SentenceTransformer(model_name)
         return _semantic_model
     except Exception:
         return None
@@ -59,6 +64,9 @@ def _get_semantic_model():
 
 
 def _get_indic_semantic_model():
+    model_cache = Path.home() / ".cache" / "huggingface" / "hub" / "models--l3cube-pune--indic-sentence-similarity-sbert"
+    if not model_cache.exists():
+        return None
     try:
         from sentence_transformers import SentenceTransformer
         return SentenceTransformer('l3cube-pune/indic-sentence-similarity-sbert')
@@ -100,6 +108,11 @@ def _get_indian_ner():
     global _ner_module
     if _ner_module is not None and _ner_module is not False:
         return _ner_module
+    # Only load GLiNER if already cached locally (avoid 834MB download)
+    gliner_cache = Path.home() / ".cache" / "huggingface" / "hub" / "models--VK1402--AADHAAR_Extractor"
+    if not gliner_cache.exists():
+        _ner_module = False
+        return None
     try:
         from ner.indian_pii import extract_indian_pii
         _ner_module = extract_indian_pii

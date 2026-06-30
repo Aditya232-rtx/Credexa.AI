@@ -121,10 +121,11 @@ def generate_explanation_vlm(
     risk_score: int,
     status: str,
     case_id: str = "",
+    docs: Sequence[Dict[str, Any]] | None = None,
 ) -> str:
     try:
         from services.sarvam_service import sarvam_explain
-        return sarvam_explain(flags, risk_score, status, case_id)
+        return sarvam_explain(flags, risk_score, status, case_id, docs=docs)
     except Exception as e:
         logger.warning(f"Sarvam explain error: {e}")
         return ""

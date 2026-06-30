@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Dict, List
 
 from utils.model_registry import registry
@@ -12,6 +13,12 @@ def _load_gliner_once():
     global _gliner_model
     if _gliner_model is not None and _gliner_model is not False:
         return _gliner_model
+    # Only load if the model is fully cached locally (avoid 834MB download)
+    gliner_cache = Path.home() / ".cache" / "huggingface" / "hub" / "models--VK1402--AADHAAR_Extractor"
+    snapshot_dir = gliner_cache / "snapshots"
+    if not snapshot_dir.is_dir() or not any(snapshot_dir.iterdir()):
+        _gliner_model = False
+        return None
     try:
         from gliner import GLiNER
         _gliner_model = GLiNER.from_pretrained("VK1402/AADHAAR_Extractor")

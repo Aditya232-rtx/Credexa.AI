@@ -1,4 +1,4 @@
-const backendBaseUrl = window.credexa?.backendBaseUrl || 'http://127.0.0.1:8765'
+const backendBaseUrl = window.credexa?.backendBaseUrl || 'http://127.0.0.1:8000'
 
 async function requestJson(path, options = {}) {
   const response = await fetch(`${backendBaseUrl}${path}`, {

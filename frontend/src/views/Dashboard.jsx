@@ -195,7 +195,7 @@ export default function Dashboard({ cases, loading, error, onSelectCase, onNewCa
                       )}
                     </div>
                     <div className="w-[80px] lg:w-[100px] shrink-0 text-right font-mono text-data-md">
-                      <span className={isFlagged ? 'text-alarm' : 'text-clear'}>{c.risk_score ?? '—'}</span>
+                      <span className={isFlagged ? 'text-alarm' : isReview ? 'text-caution' : 'text-clear'}>{c.risk_score ?? '—'}</span>
                       <span className="text-text-ghost">/100</span>
                     </div>
                   </button>

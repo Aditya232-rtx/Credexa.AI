@@ -17,7 +17,7 @@ from loguru import logger
 from ingestion.loader import read_document
 from router.classifier import DocumentRouter
 from scoring.main import score_case
-from utils.encryption import decrypt_data
+from utils.encryption import decrypt_data, decrypt_string
 from db.connection import get_db_connection
 
 LAYER_TIMEOUT = int(os.environ.get("LAYER_TIMEOUT", "600"))  # seconds per document (TruFor alone can take ~390s)
@@ -165,6 +165,7 @@ class CasePipeline:
 
     def process_case(self, case_id: str) -> Dict[str, Any]:
         with self._connect() as conn:
+            conn.autocommit = True
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM cases WHERE id = %s", (case_id,))
                 case = cur.fetchone()
@@ -212,7 +213,13 @@ class CasePipeline:
                     self._insert_flag(cur, case_id, None, flag)
                 all_flags.extend(cross_doc_flags)
 
-                applicant_flags = check_applicant_consistency(case, doc_entities)
+                # Decrypt applicant data before passing to consistency checks
+                app_case = dict(case)
+                if app_case.get("address"):
+                    app_case["address"] = decrypt_string(app_case["address"])
+                if app_case.get("mobile_no"):
+                    app_case["mobile_no"] = decrypt_string(app_case["mobile_no"])
+                applicant_flags = check_applicant_consistency(app_case, doc_entities)
                 for flag in applicant_flags:
                     self._insert_flag(cur, case_id, None, flag)
                 all_flags.extend(applicant_flags)
@@ -222,7 +229,7 @@ class CasePipeline:
                     self._insert_flag(cur, case_id, None, flag)
                 all_flags.extend(anomaly_result.flags)
 
-                scoring = score_case(all_flags, anomaly_result.score)
+                scoring = score_case(all_flags, anomaly_result.score, docs=document_results)
                 cur.execute(
                     "UPDATE cases SET status = %s, risk_score = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                     (scoring["status"], scoring["risk_score"], case_id),
@@ -231,13 +238,12 @@ class CasePipeline:
                     "INSERT INTO audit_log (id, case_id, action, details) VALUES (%s, %s, %s, %s)",
                     (str(uuid.uuid4()), case_id, "analysis_completed", scoring["explanation"]),
                 )
-            conn.commit()
 
-            return {
-                "case_id": case_id,
-                "risk_score": scoring["risk_score"],
-                "status": scoring["status"],
-                "explanation": scoring["explanation"],
-                "documents": document_results,
-                "flags": all_flags,
-            }
+        return {
+            "case_id": case_id,
+            "risk_score": scoring["risk_score"],
+            "status": scoring["status"],
+            "explanation": scoring["explanation"],
+            "documents": document_results,
+            "flags": all_flags,
+        }

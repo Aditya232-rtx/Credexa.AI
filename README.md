@@ -7,15 +7,16 @@ Welcome to **Credexa**, a comprehensive desktop application for detecting tamper
 How can a bank automatically detect tampering or changes made across land records, legal documents, and financial statements in real time? Credexa solves this by offering a multi-layered pipeline that ingests documents, categorizes them, extracts forensic metadata, applies visual and logical validation, and surfaces anomalies to the underwriter with an LLM-powered explainability engine.
 
 ### Core Pipeline
-1. **Ingestion**: OCR & Text/Metadata Extraction (pdfplumber, RapidOCR, PaddleOCR)
-2. **Document Routing**: Categorizes documents into Financial, Legal, or Land & Identity using keyword-based classification with LayoutLMv3 as an optional signal.
+1. **Ingestion**: OCR & Text/Metadata Extraction (pdfplumber, RapidOCR, supported by Sarvam AI API for high-accuracy Indian language OCR)
+2. **Document Routing**: Categorizes documents into Financial, Legal, or Land & Identity using keyword-based classification with optional VLM-based classification (Sarvam AI).
 3. **Forensic Analysis**:
    - **File Forensics**: Inspects PDF layers, object structure, fonts, and edit history.
    - **Visual Forensics**: Performs Error Level Analysis (ELA), DCT block analysis, and PRNU noise fingerprinting.
+   - **AI / Tamper Detection**: Supported by Sightengine API (AI-generated image detection) and Veryfi API (digital tampering & fraud detection).
    - **Logical/Math Validation**: Cross-checks financial equations (e.g., Bank balance reconciliation, Assets = Liabilities + Equity).
 4. **Cross-Document Consistency**: Uses NER and fuzzy matching to ensure details (Names, PAN, DOB) match across different submitted documents.
 5. **ML Anomaly Engine**: Employs Isolation Forest, ECOD, Autoencoder, and Pattern Detectors to flag outliers.
-6. **Score Aggregation & Explainability**: Calculates a definitive risk score, and uses a local LLM (e.g., Qwen) to generate a natural-language explanation of why a document was flagged.
+6. **Score Aggregation & Explainability**: Calculates a definitive risk score, and generates a natural-language explanation using Sarvam AI's LLM.
 
 ### Application Types Supported
 Credexa supports document verification across multiple use cases:
@@ -44,35 +45,14 @@ Credexa is built to handle the complexities of regional and standard documents:
 
 | Layer | Technologies |
 |-------|-------------|
-| **OCR & Extraction** | `pdfplumber`, `Tesseract`, `PaddleOCR` |
-| **Metadata & Forensics** | `ExifTool`, `pikepdf`, `Pillow` (ELA), `Imago Forensics` |
-| **Classification & NLP** | `LayoutLMv3`, `Donut`, `spaCy`, `RapidFuzz` |
+| **OCR & Extraction** | `pdfplumber`, `RapidOCR`, `Sarvam AI API` (high-accuracy Indian language OCR) |
+| **Metadata & Forensics** | `ExifTool`, `pikepdf`, `Pillow` (ELA), `Sightengine API` (AI detection), `Veryfi API` (tamper detection) |
+| **Classification & NLP** | `spaCy`, `RapidFuzz`, `Sarvam AI VLM` (vision-based document classification) |
 | **ML & Analytics** | `scikit-learn`, `pandas`, `Isolation Forest` |
 | **Backend API** | `FastAPI`, `Uvicorn` |
-| **Database & Task Queue** | `PostgreSQL`, `Redis`, `Celery` |
+| **Database** | `SQLite` (default), `PostgreSQL` (production) |
 | **Frontend** | `React`, `Vite`, `Tailwind CSS` |
 | **Desktop App** | `Electron` |
-
----
-
-## 🧠 Model Optimization (LayoutLMv3)
-
-Credexa uses LayoutLMv3 for document parsing and routing. By default, the raw PyTorch model from HuggingFace is extremely large (~478MB). Running this raw model inside parallel Celery workers creates a massive memory bottleneck, especially during local development or on CPU-only infrastructure.
-
-To solve this, we use **PyTorch QNNPACK INT8 Dynamic Quantization**. This process compresses the model weights, slashing the memory footprint by **~51% (down to 235MB)** and dramatically speeding up CPU inference without losing extraction accuracy.
-
-### Generating the Optimized Model
-If you are running Credexa locally, you should generate the optimized `.pt` model before starting the backend.
-
-1. Activate your virtual environment.
-2. Run the optimization script:
-```bash
-python export_pytorch_quantized.py
-```
-3. The script will download the raw FUNSD model, apply INT8 quantization, and save `layoutlmv3_quantized.pt` to the root directory.
-4. The OCR ingestion engine (`backend/ingestion/ocr.py`) will automatically detect and load this smaller, faster model.
-
----
 
 ## 🛠 Setup & Installation
 
@@ -134,6 +114,32 @@ npm install
 npm run dev
 ```
 
+### Desktop App Build (macOS)
+
+To package Credexa as a standalone macOS desktop application:
+
+```bash
+cd frontend
+npm install
+npm run electron:build -- --mac
+```
+
+The packaged `.dmg` file will be available in the `frontend/dist_electron/` directory.
+
+### Desktop App Build (Windows)
+
+To package Credexa as a standalone Windows desktop application:
+
+```powershell
+cd frontend
+npm install
+npm run electron:build -- --win
+```
+
+The packaged installer (`.exe` / `.msi`) will be available in the `frontend/dist_electron/` directory.
+
+> **Note**: For Windows builds, you may need to configure code signing or run without signing for local testing. See Electron Builder documentation for details.
+
 ---
 
 ### Option C: Local Native Setup (Windows)
@@ -180,43 +186,26 @@ Credexa/
 │   ├── electron/           # Electron main process (main.js, preload.js)
 │   ├── src/                # React application source
 │   ├── package.json
-├── backend/                # FastAPI backend + ML pipeline + Celery
+├── backend/                # FastAPI backend
 │   ├── api/                # REST API endpoints
-│   ├── db/                 # SQLite / PostgreSQL dual-backend (connection.py)
-│   ├── services/           # Analysis pipeline, document router (QuickScanPipeline available)
-│   ├── ingestion/          # LayoutLMv3, PyMuPDF extractors
-│   ├── celery_app.py       # Celery worker & Redis configuration
-│   ├── tasks.py            # Async background tasks
-│   └── mock_gov_apis/      # Mock government verification APIs
+│   ├── db/                 # SQLite / PostgreSQL dual-backend
+│   ├── services/           # Analysis pipeline, external API integrations
+│   ├── consistency/        # Cross-document & applicant data checks
+│   ├── forensics/          # File, visual, and math validation
+│   ├── scoring/            # Risk scoring & explainability
+│   ├── ner/                # Indian PII extraction & entity recognition
+│   └── router/             # Document classifier
 ├── docker-compose.yml      # Multi-container orchestration
-├── Dockerfile              # Backend container build instructions
 ├── requirements.txt        # Python dependencies
 ├── docs/                   # Documentation, architecture diagrams
 └── README.md
 ```
 
-## 🧠 Model Quantization & `.pt` Models
+## 📥 Direct Desktop App Download
 
-Our analysis pipeline heavily relies on Deep Learning models, primarily **LayoutLMv3** for understanding document structure (key-value pair extraction) and semantic labeling.
-By default, the raw LayoutLMv3 PyTorch model is approximately 500MB and uses FP32 (32-bit floating point) precision. 
+Pre-built desktop installers for Windows and macOS will be available for direct download soon. Stay tuned for the first release with one-click installation — no manual setup required.
 
-Running this raw model inside a Celery background worker on CPU poses severe bottlenecks:
-1. **High Memory Usage**: Multiple worker threads loading FP32 models can quickly OOM (Out Of Memory) the unified memory of the host machine.
-2. **Inference Latency**: Without optimization, token classification on high-resolution OCR bounds takes several seconds per page, completely blocking the Celery queue.
-
-To solve this, we use **Dynamic INT8 Quantization** and save the optimized weights as `.pt` (PyTorch) models. Quantization reduces the model precision from 32-bit floats to 8-bit integers for the linear layers, effectively halving the memory footprint to ~240MB and providing a 2x-3x speedup on CPU inference via the `qnnpack` backend.
-
-### Generating the Optimized Models
-We have provided export scripts in the project root to generate these `.pt` models. Run the following script once before starting the backend:
-
-```bash
-# Ensure you are in your virtual environment
-source venv/bin/activate
-
-# Run the PyTorch quantization script
-python3 export_pytorch_quantized.py
-```
-This script will download the `nielsr/layoutlmv3-finetuned-funsd` model, apply PyTorch INT8 dynamic quantization, and save the output as `layoutlmv3_quantized.pt`. The backend `ocr.py` is configured to automatically load this `.pt` file if it exists, bypassing the unoptimized HuggingFace model.
+---
 
 ## 📄 License
 

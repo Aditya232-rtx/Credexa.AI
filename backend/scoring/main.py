@@ -17,7 +17,7 @@ STATUS_THRESHOLDS = [
 ]
 
 
-def score_case(flags: Sequence[Dict[str, Any]], anomaly_score: float = 0.0, case_id: str = "") -> Dict[str, Any]:
+def score_case(flags: Sequence[Dict[str, Any]], anomaly_score: float = 0.0, case_id: str = "", docs: Sequence[Dict[str, Any]] | None = None) -> Dict[str, Any]:
     weighted_flags = 0.0
     for flag in flags:
         weighted_flags += float(flag.get("score") or SEVERITY_WEIGHTS.get(str(flag.get("severity", "low")).lower(), 8))
@@ -35,7 +35,7 @@ def score_case(flags: Sequence[Dict[str, Any]], anomaly_score: float = 0.0, case
     # Use LLM explainability engine when available, fall back to template
     try:
         from scoring.explainability import generate_explanation
-        explanation = generate_explanation(flags, risk_score, status, case_id=case_id)
+        explanation = generate_explanation(flags, risk_score, status, case_id=case_id, docs=docs)
     except Exception as e:
         logger.warning(f"Explainability engine failed, using template: {e}")
         explanation = _build_summary(flags, anomaly_score, risk_score, status)
@@ -51,6 +51,13 @@ def _build_summary(flags: Sequence[Dict[str, Any]], anomaly_score: float, risk_s
     if not flags and anomaly_score < 10:
         return "No material fraud indicators were detected."
 
-    top_findings = [str(flag.get("finding", "Unknown issue")) for flag in list(flags)[:3]]
-    finding_text = "; ".join(top_findings) if top_findings else "No specific flags"
-    return f"Risk score {risk_score} ({status}). Key signals: {finding_text}."
+    top_flags = list(flags)[:3]
+    parts = [f"Risk score {risk_score}/100 — {status.upper()}."]
+    for flag in top_flags:
+        layer = flag.get("layer", "Analysis")
+        finding = flag.get("finding", "").strip()
+        if finding:
+            parts.append(f"[{layer}] {finding}.")
+    if len(parts) < 2:
+        parts.append("Document verification completed with flags requiring review.")
+    return " ".join(parts)

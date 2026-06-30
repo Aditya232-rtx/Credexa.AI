@@ -85,7 +85,7 @@ def sarvam_extract_text(image_path: str) -> str:
         job = client.document_intelligence.create_job(language="en-IN", output_format="md")
         job.upload_file(image_path)
         job.start()
-        job.wait_until_complete()
+        job.wait_until_complete(timeout=300)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             zip_path = os.path.join(tmpdir, "output.zip")
@@ -194,7 +194,7 @@ Respond with ONLY the category name, nothing else."""
     return "unknown"
 
 
-def sarvam_explain(flags, risk_score, status, case_id="") -> str:
+def sarvam_explain(flags, risk_score, status, case_id="", docs=None) -> str:
     safe_case_id = re.sub(r"[^A-Z0-9-]", "", case_id)[:20] if case_id else ""
     if not flags:
         return "No material fraud indicators were detected across any submitted document."
@@ -203,22 +203,29 @@ def sarvam_explain(flags, risk_score, status, case_id="") -> str:
     flags_json = json.dumps(top_flags, indent=2, default=str)
     safe_flags_json = _sanitize_text(flags_json, max_len=3000)
 
+    doc_context = ""
+    if docs:
+        categories = [d.get("doc_category", "") for d in docs if d.get("doc_category")]
+        if categories:
+            doc_context = f"Document{'' if len(categories) == 1 else 's'} submitted: {', '.join(categories)}.\n"
+
     prompt = f"""You are a financial fraud analyst at an Indian bank.
 
-Given the anomaly flags detected during automated document verification for loan application case {safe_case_id}, write a 2-3 sentence explanation for a bank underwriter.
+Given the anomaly flags detected during automated document verification for loan application case {safe_case_id}, write a detailed 3-5 sentence explanation for a bank underwriter.
 
 Risk Score: {risk_score}/100 (Status: {status})
 
-Detected Anomalies:
+{doc_context}Detected Anomalies:
 {safe_flags_json}
 
 Requirements:
-- Be specific. Cite the exact findings.
+- Start by stating the overall finding and document types analyzed.
+- Be specific. Cite the exact findings and which document or layer triggered them.
 - Use professional language suitable for a bank credit report.
 - If the risk is low, clearly state the documents appear genuine.
 - Do NOT use markdown formatting. Plain text only.
-- Keep it under 100 words."""
-    result = _chat_completion(prompt, max_tokens=256, temperature=0.3)
+- Write at least 3 complete sentences and at most 5."""
+    result = _chat_completion(prompt, max_tokens=350, temperature=0.3)
     return result or ""
 
 

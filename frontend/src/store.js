@@ -11,6 +11,7 @@ export const useStore = create((set) => ({
   backendReady: false,
   casesError: null,
   caseError: null,
+  caseRefresh: 0,
 
   setActiveView: (view) => set({ activeView: view }),
   setCases: (cases) => set({ cases }),
@@ -22,4 +23,5 @@ export const useStore = create((set) => ({
   setBackendReady: (ready) => set({ backendReady: ready }),
   setCasesError: (error) => set({ casesError: error }),
   setCaseError: (error) => set({ caseError: error }),
+  refreshCase: () => set((s) => ({ caseRefresh: s.caseRefresh + 1 })),
 }))

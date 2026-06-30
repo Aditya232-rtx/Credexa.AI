@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import { ToastProvider, useToast } from './components/Toast'
+import logoSrc from './assets/logo.png'
 import Dashboard from './views/Dashboard'
 import CaseDetail from './views/CaseDetail'
 import Upload from './views/Upload'
@@ -22,6 +23,7 @@ function AppShell() {
     backendReady, setBackendReady,
     casesError, setCasesError,
     caseError, setCaseError,
+    caseRefresh, refreshCase,
   } = useStore()
 
   // Poll for backend readiness
@@ -100,7 +102,7 @@ function AppShell() {
       if (!cancelled) setLoadingCase(false)
     })
     return () => { cancelled = true }
-  }, [selectedCaseId, toast])
+  }, [selectedCaseId, caseRefresh, toast])
 
   function handleNavigate(view) {
     if (view === 'cases' && !selectedCaseId) {
@@ -117,6 +119,7 @@ function AppShell() {
 
   function handleSelectCase(id) {
     setSelectedCaseId(id)
+    refreshCase()
     setActiveView('cases')
   }
 
@@ -160,6 +163,7 @@ function AppShell() {
       // 3. Analysis complete, load fresh data and transition to case detail tab
       await loadCases()
       setSelectedCaseId(res.case_id)
+      refreshCase()
       toast.success('Analysis complete! Viewing case details.', 'Success')
     } catch (err) {
       console.error(err)
@@ -175,10 +179,17 @@ function AppShell() {
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {!backendReady ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 animate-fade-in">
-            <div className="w-10 h-10 border-3 border-indigo border-t-transparent rounded-full animate-spin" />
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 animate-fade-in">
+            <img
+              src={logoSrc}
+              alt="Credexa"
+              className="w-14 h-14 object-contain animate-[splash-pulse_1.2s_ease-in-out_infinite] opacity-80"
+            />
             <div className="text-heading text-text-muted">Connecting to backend...</div>
             <div className="text-body text-text-ghost">Loading ML models and initializing database</div>
+            <div className="w-[120px] h-[2px] bg-border rounded-full overflow-hidden mt-1">
+              <div className="h-full w-full bg-indigo rounded-full origin-left animate-[splash-load_1.5s_ease-in-out_infinite]" />
+            </div>
           </div>
         ) : (
           <>
